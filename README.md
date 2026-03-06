@@ -1,4 +1,4 @@
-This is my modest attempt at creating an ECS (Entity Component System). The speed didn't meet my expectations, so I temporarily abandoned development, but the system is complete and can be used in small games where the number of entities doesn't exceed hundred of thousands.\
+This is my modest attempt at creating an ECS (Entity Component System). The speed didn't meet my expectations, so I temporarily abandoned development, maybe I will back to it later.\
 \
 The main idea is that memory for components is divided into blocks, and entities belong to three lifetimes:
 - QUICK: entities that lives several frames, like bullets, and require fast memory (stack);
