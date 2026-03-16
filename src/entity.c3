@@ -172,7 +172,7 @@ macro any[] Entity.get_all(&self, Allocator allocator, ...) {
 	$for var $i = 0; $i < $vacount; $i++:
 		var $Type = $vaexpr[$i];
 		
-		$if $Type.kindof == TypeKind.STRUCT || $Type.kindof == TypeKind.DISTINCT:
+		$if $Type.kindof == TypeKind.STRUCT || $Type.kindof == TypeKind.TYPEDEF:
 			if (try $Type* value = self.get($Type)) {
 				(*values)[idx++] = value;
 			}

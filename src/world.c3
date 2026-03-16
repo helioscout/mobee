@@ -92,7 +92,7 @@ fn void World.init(&self) @private {
    @param element : "World element kind."
    @param $Type : "Element (component/tag/resource) type."
    @param buffer : "Pointer to buffer for quick lifetime chunk. Ensure that you don't use same buffers for different worlds."
-   @require $Type.kindof == TypeKind.STRUCT || $Type.kindof == TypeKind.DISTINCT : "Element type is not valid."
+   @require $Type.kindof == TypeKind.STRUCT || $Type.kindof == TypeKind.TYPEDEF : "Element type is not valid."
    @require element != SYSTEM : "Systems should be registered with mount method."
    @require !(element == COMPONENT && self.components.has($Type.typeid)) : "Component already registered."
    @require !(element == TAG && self.tags.has($Type.typeid)) : "Tag already registered."
