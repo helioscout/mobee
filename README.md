@@ -26,5 +26,3 @@ There are main constants that you can change when copying ECS into your project 
 There is no limitations of entities count, but for components and tags:
 - MAX_COMPONENTS_COUNT: Maximum components count available for adding to entity;
 - MAX_TAGS_COUNT: Maximum tags count available for adding to entity.\
-\
-[![Hits](https://hits.sh/sr.ht/~modevstudio/moecs-c3.svg)](https://hits.sh/sr.ht/~modevstudio/moecs-c3/)
