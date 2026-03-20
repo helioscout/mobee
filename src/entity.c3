@@ -7,21 +7,14 @@ struct Entity {
 	<* Entity state. *>
 	ElementState state;
 	<* Components marker, each set bit specifies that the component exists in the entity. *>
-	ComponentsMarker components;
+	usz[COMPONENTS_MARKER_SIZE] components;
 	<* Tags marker, each set bit specifies that the tag exists in the entity. *>
-	TagsMarker tags;
-	
-	union {
-		<* Reference to the parent block interface. Use only if stae has not BUFFERED flag. *>
-		BlockGene block;
-		<* Reference to the parent world.
-		   If active (state has BUFFERED flag) than entity is in the quick lifetime buffer, not a real block. *>
-		World* world;
-	}
-	
+	usz[TAGS_MARKER_SIZE] tags;
+	<* Reference to the parent block. *>
+	Block* block;
 	<* The index of the entity in the collection (chunk index for its components). *>
 	usz chunk_idx;
-	<* Archetype reference which entity belongs to. Is nill for entities without components/tags. *>
+	<* Archetype reference which entity belongs to. Is null for entities without components/tags. *>
 	Archetype* archetype;
 }
 

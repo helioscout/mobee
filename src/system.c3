@@ -11,17 +11,40 @@ struct System {
 	   HAS_COMPONENTS: Query component has been registered. For optimization if wasn't. *>
 	ElementState state;
 	<* Components marker, each set bit specifies component in the system match query. *>
-	ComponentsMarker components;
+	usz[COMPONENTS_MARKER_SIZE] components;
 	<* Tags marker, each set bit specifies tag in the system match query. *>
-	TagsMarker tags;
+	usz[TAGS_MARKER_SIZE] tags;
+	<* System running phase, order in the pipeline. By default equals UPDATE. *>
+	Phase phase;
 	<* Entities lifetime flag to optimize queries and do not process lifetimes
-	   that you want to avoid for current system. Includes all lifetimes (0b00000111) by default.
+	   that you want to avoid for current system. Includes all lifetimes (0b00000011) by default.
 	   Not used in ARCHETYPE approach. *>
 	char lifetime;
 	<* Matched entities list (query result) for current system run. Not used in ARCHETYPE approach. *>
 	Entities entities;
 	<* Callback function that will be invoked each step of the world progress.
 	   Disable system to pause invokation. *>
+	SystemCallback callback;
+	<* Components types list that should match while the system query.
+	   Cloned from definition for further marker set after sorting components. *>
+	typeid[] component_types;
+}
+
+<* System definition, for mounting. *>
+struct SystemDefinition {
+	<* Name of the system. It must be unique. Used for getting the system from the world. *>
+	String name;
+	<* Components list that should match while the system query. *>
+	typeid[] components;
+	<* Tags list that should match while the system query. *>
+	typeid[] tags;
+	<* System running phase, order in the pipeline. By default equals UPDATE. *>
+	Phase phase;
+	<* Entities lifetime flag to optimize queries and do not process lifetimes
+	   that you want to avoid for current system. Includes all lifetimes (0b00000011) by default.
+	   Not used in ARCHETYPE approach. *>
+	char lifetime;
+	<* Callback function that will be invoked each step of the world progress. *>
 	SystemCallback callback;
 }
 
@@ -33,12 +56,12 @@ fn bool System.enabled(&self) @inline => self.state & ElementState.ENABLED != 0;
 <* Checks if the system has components.
    @return "True if system has components, otherwise - false."
 *>
-fn bool System.has_components(&self) @inline => self.state & ElementState.HAS_COMPONENTS != 0;
+fn bool system_has_components(System* system) @private @inline => system.state & ElementState.HAS_COMPONENTS != 0;
 
 <* Checks if the system has tags.
    @return "True if system has tags, otherwise - false."
 *>
-fn bool System.has_tags(&self) @inline => self.state & ElementState.HAS_TAGS != 0;
+fn bool system_has_tags(System* system) @private @inline => system.state & ElementState.HAS_TAGS != 0;
 
 <* Enables the system. *>
 fn void System.enable(&self) @inline {
@@ -52,17 +75,8 @@ fn void System.disable(&self) @inline {
 
 fn bool System.eq(&self, System other) @operator(==) @inline => self.name == other.name;
 
-<* System definition, for mounting. *>
-struct SystemDefinition {
-	<* Name of the system. It must be unique. Used for getting the system from the world. *>
-	String name;
-	<* Components list that should match while the system query. *>
-	typeid[] components;
-	<* Tags list that should match while the system query. *>
-	typeid[] tags;
-	<* Entities lifetime flag to optimize queries and do not process lifetimes
-	   that you want to avoid for current system. Includes all lifetimes (0b00000111) by default.*>
-	char lifetime;
-	<* Callback function that will be invoked each step of the world progress. *>
-	SystemCallback callback;
+<* Free all system resources. *>
+fn void free_system(System* system) @private @inline {
+	system.entities.free();
+	free(system.component_types);
 }

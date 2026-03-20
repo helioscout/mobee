@@ -1,11 +1,6 @@
 module moecs;
 
-import std::collections::elastic_array;
-import moecs::block;
 import std::io;
-
-<* Indexes type for deleted rows in buffered chunks. *>
-alias BufferedIndexes = ElasticArray { usz, QUICK_CHUNK_SIZE };
 
 <* World type, main container of the sapce. The world is built of blocks. *>
 struct World {
@@ -15,31 +10,22 @@ struct World {
 	Components components;
 	<* Registered tag types. *>
 	Tags tags;
-	<* Registered resource types with its instances (values).
-	   Collection of all world resources. *>
+	<* Registered resource types. *>
 	Resources resources;
-	<* Mounted systems. *>
+	<* All mounted systems. *>
 	Systems systems;
+	<* Systems split by phase for running in the pipeline. *>
+	Schedule schedule;
 	<* Archetypes collection of the world. *>
 	Archetypes archetypes;
-	<* Blocks for entities with quick lifetime. *>
-	QuickBlocks quicks;
 	<* Blocks for entities with dynamic lifetime. *>
-	DynamicBlocks dynamics;
+	Blocks dynamics;
 	<* Blocks for entities with static lifetime. *>
-	StaticBlocks statics;
-	<* Defines that world uses quick lifetime (default: true).
-	   If at least one component is registered without a buffer it will be set to false.
-	   If disabled than all attempts to create quick lifetime entites will fail. *>
-	bool use_quicks;
-	<* Buffer for quick life time entities, must be provided from the main app. *>
-	Entity[QUICK_CHUNK_SIZE]* buffer;
-	<* Deleted (freed) rows in the quick lifetime buffer. *>
-	BufferedIndexes deleted;
-	<* Current inserting index in the quick lifetime buffer (last inserted index + 1). *>
-	usz idx;
+	Blocks statics;
 	<* Indicates that the world is running. *>
 	bool running;
+	<* Indicates that START phase has already executed. *>
+	bool started;
 	<* Indicates that the world is in performing stage (runs deffered actions). *>
 	bool performing;
 	<* Deffered actions for the world. *>
@@ -49,10 +35,9 @@ struct World {
 <* Gets world blocks count for specific (default: all) lifetimes.
    @param lifetime : "Blocks lifetime flag."
 *>
-fn usz World.size(&self, char lifetime = 0b00000111) {
+fn usz World.size(&self, char lifetime = 0b00000011) {
 	usz size;
 
-	if (lifetime & Lifetime.QUICK)   size += self.quicks.size;
 	if (lifetime & Lifetime.DYNAMIC) size += self.dynamics.size;
 	if (lifetime & Lifetime.STATIC)  size += self.statics.size;
 	
@@ -73,46 +58,40 @@ macro usz World.size_of(&self, ...) {
 }
 
 <* Initializes the world. *>
-fn void World.init(&self) @private {
-	self.resources.init(mem);
-	self.systems.init(mem);
+fn void world_init(World* world) @private {
+	world.systems.init(mem);
+	world.dynamics.init(mem);
+	world.statics.init(mem);
 
-	self.quicks.init(mem);
-	self.dynamics.init(mem);
-	self.statics.init(mem);
-
-	if (self.approach == ARCHETYPE) {
-		self.archetypes.init(mem);
-		self.deffered.despawning.init(mem);
-		self.deffered.archetyping.init(mem);
+	world.schedule.start.init(mem);
+	world.schedule.pre_update.init(mem);
+	world.schedule.update.init(mem);
+	world.schedule.post_update.init(mem);
+	
+	if (world.approach == ARCHETYPE) {
+		world.archetypes.init(mem);
+		world.deffered.despawning.init(mem);
+		world.deffered.archetyping.init(mem);
 	}
 }
 
 <* Registers element type for the world.
    @param element : "World element kind."
-   @param $Type : "Element (component/tag/resource) type."
-   @param buffer : "Pointer to buffer for quick lifetime chunk. Ensure that you don't use same buffers for different worlds."
-   @require $Type.kindof == TypeKind.STRUCT || $Type.kindof == TypeKind.TYPEDEF : "Element type is not valid."
-   @require element != SYSTEM : "Systems should be registered with mount method."
-   @require !(element == COMPONENT && self.components.has($Type.typeid)) : "Component already registered."
-   @require !(element == TAG && self.tags.has($Type.typeid)) : "Tag already registered."
-   @require !(element == RESOURCE && self.resources.has_key($Type.typeid)) : "Resource already registered."
-   @require !(element != COMPONENT && buffer != null) : "You do not need a bufer for different from component element type."
-   @require !(buffer != null && buffer.type != $Type[QUICK_CHUNK_SIZE].typeid) : "Buffer must have a type of array $Type[QUICK_CHUNK_SIZE]."
-   @require !self.running : "You can't change already running world."
-   @return "Pointer to the world for chain calls."
+   @param $Type   : "Element (component/tag/resource) type."
+   @return          "Pointer to the world for chain calls."
 *>
-macro World* World.register(&self, Element element, $Type, any buffer = null) {
+macro World* World.register(&self, Element element, $Type) {
+	if (self.running) return self;
+	
 	switch (element) {
 		case COMPONENT:
-			self.components.add($Type.typeid, { .type = $Type.typeid, .size = $Type.sizeof, .buffer = buffer,
-				.idx = self.components.count });
-			/* We must disbale quick lifetime for this world when no buffer provided. */
-			if (buffer == null) self.use_quicks = false;
+			components_add(&self.components, $Type.typeid,
+				{ .type = $Type.typeid, .size = $Type.sizeof, .idx = self.components.count });
 		case TAG:
-			self.tags.add($Type.typeid, { .type = $Type.typeid, .idx = self.tags.count });
+			tags_add(&self.tags, $Type.typeid, { .type = $Type.typeid, .idx = self.tags.count });
 		case RESOURCE:
-			self.resources.set($Type.typeid, { .type = $Type.typeid, .value = mem::new($Type, {}) });
+			resources_add(&self.resources, $Type.typeid,
+				{ .type = $Type.typeid, .size = $Type.sizeof, .idx = self.resources.count });
 		case SYSTEM: break;
 	}
 
@@ -121,37 +100,53 @@ macro World* World.register(&self, Element element, $Type, any buffer = null) {
 
 <* Mounts new system to the world.
    @param definition : "System definition."
-   @require !(definition.name && self.has_system(definition.name)) : "System with such name has already been mounted."
-   @require !(definition.components.len == 0 && definition.tags.len == 0) : "Components or tags must be specified."
-   @require definition.callback != null : "Callback must be provided."
-   @require !self.running : "You can't change already running world."
-   @return "Pointer to the world for chain calls."
+   @return             "Pointer to the world for chain calls."
 *>
 fn World* World.mount(&self, SystemDefinition definition) {
-	System* system = mem::new(System, { .name = definition.name, .callback = definition.callback, .state = ENABLED,
-					  .lifetime = definition.lifetime == 0 ? 0b00000111 : definition.lifetime });
+	if (definition.name && self.has_system(definition.name)) panic("System with such name has already been mounted.");
+	if (!definition.name && definition.phase == MANUAL) panic("Systems with MANUAL phase must have a name.");
+	if (definition.callback == null) panic("Callback must be provided.");
+	if (self.running) panic("You can't mount system to already running world.");
 
-	if (definition.components.len > 0) {
-		foreach (type : definition.components) {
-			if (try idx = self.components.index(type)) {
-				system.components.set(idx);
+	System* system = mem::new(System,
+		{ .name     = definition.name,
+		  .callback = definition.callback,
+		  .state    = ENABLED,
+		  .lifetime = definition.lifetime == 0 ? 0b00000011 : definition.lifetime,
+		  .phase    = definition.phase,
+		  .component_types = @clone_slice(definition.components) });
+
+	if (definition.components.len == 0 && definition.tags.len == 0) {
+		system.state |= ElementState.IS_TASK;
+	} else {
+		if (definition.components.len > 0) {
+			foreach (type : definition.components) {
+				usz idx = component_index(&self.components, type);
+				if (idx != -1) marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
 			}
+
+			system.state |= ElementState.HAS_COMPONENTS;
 		}
 
-		system.state |= ElementState.HAS_COMPONENTS;
-	}
-
-	if (definition.tags.len > 0) {
-		foreach (type : definition.tags) {
-			if (try idx = self.tags.index(type)) {
-				system.tags.set(idx);
+		if (definition.tags.len > 0) {
+			foreach (type : definition.tags) {
+				usz idx = tag_index(&self.tags, type);
+				if (idx != -1) marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
 			}
-		}
 
-		system.state |= ElementState.HAS_TAGS;
+			system.state |= ElementState.HAS_TAGS;
+		}
 	}
 
 	system.entities.init(mem);
+
+	switch (definition.phase) {
+		case START: self.schedule.start.push(system);
+		case PRE_UPDATE: self.schedule.pre_update.push(system);
+		case UPDATE: self.schedule.update.push(system);
+		case POST_UPDATE: self.schedule.post_update.push(system);
+	}
+	
 	self.systems.push(system);
 	
 	return self;
@@ -159,13 +154,18 @@ fn World* World.mount(&self, SystemDefinition definition) {
 
 <* Unmounts the system from the world.
    @param name : "System name."
-   @require name != "" : "Name can't be empty."
-   @return "Pointer to the world for chain calls."
+   @return       "Pointer to the world for chain calls."
 *>
 fn World* World.unmount(&self, String name) {
 	if (try system = self.get_system(name)) {
+		self.schedule.start.remove_item(system);
+		self.schedule.pre_update.remove_item(system);
+		self.schedule.update.remove_item(system);
+		self.schedule.post_update.remove_item(system);
 		self.systems.remove_item(system);
-		system.entities.free();
+		
+		free_system(system);
+		free(system);
 	}
 	
 	return self;
@@ -173,46 +173,46 @@ fn World* World.unmount(&self, String name) {
 
 <* Runs the world, but at first constructs all neccessary data from registered elements.
    World must has at least one registered component, but can has no tags, resources.
-   @require !self.components.is_empty() : "The world has no registered components."
-   @require !self.running : "The world is already running."
    @return "Pointer to the world for chain calls."
 *>
 fn World* World.run(&self) {
+	if (self.components.is_empty()) panic("The world has no registered components.");
+	if (world.running) return self;
+
+	components_adjust(&world.components);
+
+	/* We must re-set all component markers for systems, because order of components
+	   has been changed during adjustment and as a result components indexes changed. */
+	foreach (system : self.systems) {
+		if (system.component_types.len > 0) {
+			marker_clear(COMPONENTS_MARKER_SIZE, &system.components);
+
+			foreach (type : system.component_types) {
+				usz idx = component_index(&self.components, type);
+				marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
+			}
+		}
+	}
+
+	if (self.resources.count > 0) {
+		resources_adjust(&self.resources);
+
+		self.resources.storage = malloc(self.resources.size);
+	}
+	
 	self.running = true;
 
-	self.perform();
-	
 	return self;
 }
 
 <* Spawns new entity into the world.
    @param lifetime : "Entity lifetime (default: Lifetime.DYNAMIC)."
-   @require !(lifetime == QUICK && !self.use_quicks) : "Quick lifetime was disabled, you should provide entity and components buffers."
-   @return "Pointer to new entity."
+   @return           "Pointer to new entity."
 *>
 fn Entity* World.spawn(&self, Lifetime lifetime = DYNAMIC) {
-	Entity* entity;
+	if (!self.running) panic("Run the world first.");
 
-	switch (lifetime) {
-		case QUICK: {
-			if (self.deleted.is_empty() && self.idx == QUICK_CHUNK_SIZE) {
-			    /* If buffers are full we must flush them to free quick block. */
-				self.get_free_block(QUICK).absorb();
-				/* And reset current inserting index. */
-				self.idx = 0;
-			}
-
-			usz idx = self.pop_free_index();	/* Here we increase inserting index. */
-			
-			/* .state has BUFFERED is a sign that entity is in the quick lifetime buffer, not a real block.		  */
-			/* But .chunk_idx will not change when flushed. We need assign world reference for access the buffer. */
-			(*self.buffer)[idx] = { .state = BUFFERED, .world = self, .chunk_idx = idx };
-			entity = &(*self.buffer)[idx];
-		}
-		
-		case DYNAMIC:
-		case STATIC: entity = self.get_sparse_block(lifetime).insert();
-	}
+	Entity* entity = block_insert(get_sparse_block(self, lifetime));
 
 	return entity;
 }
@@ -225,37 +225,30 @@ fn void World.despawn(&self, Entity* entity) {
 	
 	if (self.approach == ARCHETYPE && self.running && !self.performing) {
 		self.deffered.despawning.push(entity);
+		entity.state |= ElementState.DESPAWNING;
 	} else {
-		if (entity.state & ElementState.BUFFERED) {
-			self.deleted.push(entity.chunk_idx);
-		} else {
-			entity.block.delete(entity.chunk_idx);
-		}
+		block_delete(entity.block, entity.chunk_idx);
+		entity.state |= ElementState.DELETED;
 	}
-
-	entity.state |= ElementState.DELETED;
 }
 
 <* Creates new empty block in the world.
    @param lifetime : "Block lifetime."
-   @return "Pointer to newly created block interface."
+   @return           "Pointer to newly created block."
 *>
-fn BlockGene World.new(&self, Lifetime lifetime) @local {
-	BlockGene block;
+fn Block* new_block(World* world, Lifetime lifetime) @local {
+	Block* block;
 
 	switch (lifetime) {
-		case QUICK:
-			self.quicks.push(mem::new(QuickBlock, { .lifetime = QUICK, .world = self }));
-			block = self.quicks.get(self.quicks.size - 1);
 		case DYNAMIC:
-			self.dynamics.push(mem::new(DynamicBlock, { .lifetime = DYNAMIC, .world = self }));
-			block = self.dynamics.get(self.dynamics.size - 1);
+			block = mem::new(Block, { .lifetime = DYNAMIC, .world = world, .size = DYNAMIC_CHUNK_SIZE });
+			self.dynamics.push(block);
 		case STATIC:
-			self.statics.push(mem::new(StaticBlock, { .lifetime = STATIC, .world = self }));
-			block = self.statics.get(self.statics.size - 1);
+			block = mem::new(StaticBlock, { .lifetime = STATIC, .world = world, .size = STATIC_CHUNK_SIZE });
+			self.statics.push(block);
 	}
 
-	block.init();
+	block_init(block);
 
 	return block;
 }
@@ -344,10 +337,11 @@ macro World.@each(&self, char lifetime = 0b00000111; @body(entity, lifetime)) {
 
 <* Checks if system with specific name was mounted.
    @param name : "System name."
-   @require name != "" : "Name can't be empty."
-   @return "True if system exists, otherwise - false."
+   @return       "True if system exists, otherwise - false."
 *>
 fn bool World.has_system(&self, String name) {
+	if (name == "") panic("System name can't be empty.");
+
 	foreach (system : self.systems) {
 		if (system.name == name) return true;
 	}
@@ -357,11 +351,12 @@ fn bool World.has_system(&self, String name) {
 
 <* Gets reference to the system by its name.
    @param name : "System name."
-   @require name != "" : "Name can't be empty."
-   @return "Pointer to the system."
+   @return       "Pointer to the system."
    @return? NOT_FOUND : "System was not found (mounted)."
 *>
 fn System*? World.get_system(&self, String name) {
+	if (name == "") panic("System name can't be empty.");
+
 	foreach (system : self.systems) {
 		if (system.name == name) return system;
 	}
@@ -490,48 +485,44 @@ fn Archetype* World.get_archetype(&self, ComponentsMarker components, TagsMarker
 	return self.new_archetype(components, tags);
 }
 
-<* Gets the reference to block interface that is available to insert new entities,
+<* Gets the reference to block that is available to insert new entities,
    has free rows or newly created one.
    @param lifetime : "Block lifetime."
-   @require lifetime != QUICK : "Quick lifetime blocks can't be sparsed."
-   @return "Pointer to available block interface."
+   @return           "Pointer to available block."
 *>
-fn BlockGene World.get_sparse_block(&self, Lifetime lifetime) @inline @local {
-	return self.find_block(lifetime, fn (b) => b.has_free_rows()) ?? self.new(lifetime);
-}
+fn Block* get_sparse_block(World* world, Lifetime lifetime) @local @inline {
+	Blocks* blocks = get_blocks(world, lifetime);
 
-<* Gets the reference to block interface that is totally free block.
-   @param lifetime : "Block lifetime."
-   @return "Pointer to free block interface."
-*>
-fn BlockGene World.get_free_block(&self, Lifetime lifetime) @inline @local {
-	return self.find_block(lifetime, fn (b) => b.free()) ?? self.new(lifetime);
-}
-
-<* Finds a block using match predicate function.
-   @param lifetime : "Block lifetime."
-   @param match : "Predicate function for match blocks using their intefraces."
-   @return "Pointer to block interface."
-   @return? NOT_FOUND : "Block was not found."
-*>
-fn BlockGene? World.find_block(&self, Lifetime lifetime, BlockGeneMatch match) @private {
-	switch (lifetime) {
-		case QUICK:
-			foreach (b : self.quicks) { if (match(b)) return b; }
-		case DYNAMIC:
-			foreach (b : self.dynamics) { if (match(b)) return b; }
-		case STATIC:
-			foreach (b : self.statics) { if (match(b)) return b; }
+	foreach (block : blocks) {
+		if (block_has_free_rows(block)) return block;
 	}
 
-	return NOT_FOUND?;
+	return new_block(world, lifetime);
 }
 
-<* Returns index of the first free to insert (last deleted) row in the quick lifetime buffer.
-   @require !(self.deleted.is_empty() && self.idx == QUICK_CHUNK_SIZE) : "The buffer is already full."
-   @ensure return >= 0 && return < QUICK_CHUNK_SIZE : "Index can't be less then 0 and grater then QUICK_CHUNK_SIZE."
-   @return "Index of the row to insert."
+<* Gets the reference to block that is totally free.
+   @param lifetime : "Block lifetime."
+   @return           "Pointer to free block."
 *>
-fn usz World.pop_free_index(&self) @inline @local {
-	return self.deleted.is_empty() ? self.idx++ : self.deleted.pop()!!;
+fn Block* get_free_block(World* world, Lifetime lifetime) @local @inline @unused {
+	Blocks* blocks = get_blocks(world, lifetime);
+
+	foreach (block : blocks) {
+		if (block_is_free(block)) return block;
+	}
+
+	return new_block(world, lifetime);
+}
+
+<* Gets blocks collection by its lifetime.
+   @param lifetime : "Block lifetime."
+   @return           "Pointer to blocks collection"
+*>
+fn Blocks* get_blocks(World* world, Lifetime lifetime) @local @inline {
+	switch (lifetime) {
+		case DYNAMIC: return &world.dynamics;
+		case STATIC:  return &world.statics;
+	}
+
+	return null;
 }

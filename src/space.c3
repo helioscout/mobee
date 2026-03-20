@@ -1,7 +1,7 @@
 module moecs;
 
 <* The space consists of worlds. *>
-Worlds worlds;
+Worlds worlds @private;
 
 <* Gets worlds count. *>
 fn usz size() {
@@ -14,15 +14,14 @@ fn void init() {
 }
 
 <* Creates new world.
-   @return "Pointer to newly created world."
-   @param buffer : "Pointer to buffer for quick lifetime entities. Ensure that you don't use same buffers for different worlds."
    @param approach : "Query match approach."
+   @return           "Pointer to newly created world."
 *>
-fn World* new(Entity[QUICK_CHUNK_SIZE]* buffer = null, Approach approach = ARCHETYPE) {
-	World* world = mem::new(World, { .approach = approach, .use_quicks = buffer != null, .buffer = buffer });
+fn World* new(Approach approach = ARCHETYPE) {
+	World* world = mem::new(World, { .approach = approach });
 	
 	worlds.push(world);
-	world.init();
+	world_init(world);
 
 	return world;
 }
