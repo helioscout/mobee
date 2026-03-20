@@ -1,182 +1,110 @@
-<* @require CHUNK_SIZE == moecs::QUICK_CHUNK_SIZE || CHUNK_SIZE == moecs::DYNAMIC_CHUNK_SIZE || CHUNK_SIZE == moecs::STATIC_CHUNK_SIZE : "Block chunk size must be one of three constants. " *>
-module moecs::block { CHUNK_SIZE };
+module moecs;
 
 import std::collections::elastic_array;
-import std::collections::bitset;
 import std::io;
 
-<* Entities collection (chunk) for the block.
-   The index of the entity corresponds to the index of its components in each chunk. *>
-alias EntitiesChunk = Entity[CHUNK_SIZE];
-
-<* Indexes type for deleted rows and other chunk sized data. *>
-alias Indexes = ElasticArray { usz, CHUNK_SIZE };
-
-<* Marker of used rows in quick lifetime chunks. *>
-alias Marker = BitSet { CHUNK_SIZE };
+<* Indexes type for dynamic lifetime block. *>
+alias Indexes = ElasticArray { usz, DYNAMIC_CHUNK_SIZE };
 
 <* Block type, building block of the world. *>
-struct Block (BlockGene) {
+struct Block @private {
 	<* Reference to the parent world. *>
 	World* world;
 	<* Block lifetime. *>
 	Lifetime lifetime;
-	<* Entities chunk (collection) for the block. *>
-	EntitiesChunk* entities;
+	<* Entities collection (chunk) for the block.
+	   The index of the entity corresponds to the index of its components in each chunk. *>
+	char* entities;
 	<* Component chunks collection for the block.
-	   Chunk is represented as an array of component struct values ($Type[(QUICK|DYNAMIC|STATIC)_CHUNK_SIZE]).
-	   But is created as a pointer to allocated memory block. *>
-	char*[moecs::MAX_COMPONENTS_COUNT] chunks;
+	   Chunk is represented as a block in memory with sequentially recorded component's values.
+	   The order (offset of each component) is defined in Components collection.
+	   A pointer to allocated memory block. *>
+	char* chunks;
 	<* Deleted (freed) rows in the dynamic lifetime block. *>
 	Indexes deleted;
-	<* Occupied (used) rows in the quick lifetime block. *>
-	Marker occupied;
 	<* Current inserting index in the block (last inserted index + 1).
-	   If it equals CHUNK_SIZE than new block should be inserted to the world. *>
+	   If it equals chunk size than new block should be inserted to the world. *>
 	usz idx;
+	<* Block chunk size dependent on lifetime. *>
+	usz size;
 }
 
 <* Initializes the block. *>
-fn void Block.init(&self) @dynamic @private {
-	self.entities = mem::alloc(EntitiesChunk);
-
-	for (usz idx = 0; idx < self.world.components.count; idx++) {
-		Component* component = &self.world.components.types[idx];
-		/* Allocate memory for components chunks.					 */
-		/* It should be later casted to corresponding array pointer. */
-		self.chunks[idx] = malloc(component.size * CHUNK_SIZE);
-	};
+fn void block_init(Block* block) @private {
+	block.entities = mem::malloc_aligned(Entity.sizeof * block.size, Entity.alignof);
+	block.chunks = malloc(block.world.components.size * block.size);
 }
 
-<* Gets world reference the block belongs to.
-   @return "Reference to the world."
-*>
-fn World* Block.get_world(&self) @inline @dynamic @private {
-	return self.world;
-}
-
-<* Gets the block's lifetime.
-   @return "Block lifetime." *>
-fn Lifetime Block.get_lifetime(&self) @inline @dynamic @private {
-	return self.lifetime;
-}
-
-<* Gets component chunk of specified type index.
-   @param idx : "Component type index."
-   @return "Pointer to the component chunk."
-*>
-fn char* Block.get_chunk(&self, usz idx) @inline @dynamic @private => self.chunks[idx];
-
-<* Checks for existence of free rows (places to insert new entities/components).
-   For quick lifetime blocks it equals to totally free block (self.free()).
-*>
-fn bool Block.has_free_rows(&self) @inline @dynamic @private {
-	switch (self.lifetime) {
-		case QUICK:   return self.occupied.cardinality() == 0;
-		case DYNAMIC: return self.idx < CHUNK_SIZE || self.deleted.size > 0;
-		case STATIC:  return self.idx < CHUNK_SIZE;
+<* Checks for existence of free rows (places to insert new entities/components). *>
+fn bool block_has_free_rows(Block* block) @private @inline {
+	switch (block.lifetime) {
+		case DYNAMIC: return block.idx < DYNAMIC_CHUNK_SIZE || block.deleted.size > 0;
+		case STATIC:  return block.idx < STATIC_CHUNK_SIZE;
 	}
 
 	return false;
 }
 
 <* Checks if all rows in the block are filled in. *>
-fn bool Block.full(&self) @inline @dynamic @private {
-	switch (self.lifetime) {
-		/* Even if one row is occupied, quick lifetime block can't be used for insert. */
-		case QUICK:   return self.occupied.cardinality() > 0;
-		case DYNAMIC: return self.idx == CHUNK_SIZE && self.deleted.size == 0;
-		case STATIC:  return self.idx == CHUNK_SIZE;
+fn bool block_is_full(Block* block) @private @inline {
+	switch (block.lifetime) {
+		case DYNAMIC: return block.idx == DYNAMIC_CHUNK_SIZE && block.deleted.size == 0;
+		case STATIC:  return block.idx == STATIC_CHUNK_SIZE;
 	}
 
 	return false;
 }
 
 <* Checks that no one row in the block are filled in, it's totally free. *>
-fn bool Block.free(&self) @inline @dynamic @private {
-	switch (self.lifetime) {
-		case QUICK:   return self.occupied.cardinality() == 0;
-		case DYNAMIC: return self.idx == 0 || self.deleted.size == (self.idx - 1);
-		case STATIC:  return self.idx == 0;
+fn bool block_is_free(Block* block) @private @inline {
+	switch (block.lifetime) {
+		case DYNAMIC: return block.idx == 0 || block.deleted.size == block.idx;
+		case STATIC:  return block.idx == 0;
 	}
 
 	return false;
 }
 
 <* Inserts entity into the block.
-   @require self.lifetime != QUICK : "You can't insert into quick lifetime block, it's frozen after mem::copy."
    @return "Pointer to inserted entity."
 *>
-fn Entity* Block.insert(&self) @dynamic @private {
-	usz idx = self.pop_free_index();
+fn Entity* block_insert(Block* block) @private {
+	usz idx = block_pop_free_index(block);
 
-	(*self.entities)[idx] = { .block = self, .chunk_idx = idx };
+	Entity* entity = (Entity*)block.entities + idx;
+	*entity = { .block = block, .chunk_idx = idx };
 	
-	return &(*self.entities)[idx];
+	return entity;
 }
 
 <* Deletes entity from the block.
    @param idx : "Entity index."
-   @require idx < CHUNK_SIZE : "Entity index must be less than chunk size."
-   @require self.lifetime != STATIC : "Static entities can't be deleted."
 *>
-fn void Block.delete(&self, usz idx) @inline @dynamic @private {
-	switch (self.lifetime) {
-		case QUICK: self.occupied.unset(idx);
-		case DYNAMIC: self.deleted.push(idx);
+fn void block_delete(Block* block, usz idx) @private @inline {
+	switch (block.lifetime) {
+		case DYNAMIC: block.deleted.push(idx);
+		case STATIC:  panic("Static entities can't be deleted.");
 	}
-}
-
-<* Flush all chunks from the buffers into this block.
-   @require self.lifetime == QUICK : "Only quick lifetime block can absorb chunks from the buffer."
-*>
-fn void Block.absorb(&self) @dynamic @private {
-	/* self.world.idx - count of buffered entities.      */
-	/* Copy buffered entities to the block's collection. */
-	mem::copy(self.entities, self.world.buffer, Entity.sizeof * self.world.idx);
-
-	/* Copy components from buffers to block chunks. */
-	for (usz idx = 0; idx < self.world.components.count; idx++) {
-		Component* component = &self.world.components.types[idx];
-		mem::copy(self.chunks[idx], component.buffer.ptr, component.size * self.world.idx);
-	};
-
-	/* Step through all copied entities. */
-	for (usz i = 0; i < self.world.idx; i++) {
-		(*self.entities)[i].block = self;						/* Change container to the block.        */
-		(*self.entities)[i].state &= ~ElementState.BUFFERED;	/* Unset entity BUFFERED state.          */
-		self.occupied.set(i);									/* Set occupied marker for entity index. */
-	}
-
-	/* If buffer is not full, we need unset occupied marker for its rest. */
-	if (self.world.idx < CHUNK_SIZE) {
-		for (usz i = self.world.idx; i < CHUNK_SIZE; i++) {
-			self.occupied.unset(i);
-		}
-	}
-	
-	self.idx = self.world.idx;
 }
 
 <* Creates iterator of entities.
    @return "Entities iterator."
 *>
-fn EntitiesIterator Block.iter(&self) @inline @dynamic @private => { .entity = null };
+fn EntitiesIterator block_iter() @private @inline => { .entity = null };
 
 <* Iterate to the next alive (not deleted) entity in the block.
    @param iter : "Entities iterator."
    @return "True if next entity found, otherwise - false."
 *>
-fn bool Block.next(&self, EntitiesIterator* iter) @dynamic @private {
+fn bool block_next(Block* block, EntitiesIterator* iter) @private {
 	/* Start from next possible entity index. */
 	usz idx = iter.entity == null ? 0 : iter.idx + 1;
 
-	while (idx < self.idx) {
-		if (self.lifetime == QUICK   && !self.occupied[idx] ||
-			self.lifetime == DYNAMIC && self.deleted.contains(idx)) {
+	while (idx < block.idx) {
+		if (block.lifetime == DYNAMIC && block.deleted.contains(idx)) {
 			idx++;
 		} else {
-			iter.entity = &(*self.entities)[idx];
+			iter.entity = (Entity*)block.entities + idx;
 			iter.idx = idx;
 
 			return true;
@@ -187,37 +115,21 @@ fn bool Block.next(&self, EntitiesIterator* iter) @dynamic @private {
 }
 
 <* Returns index of the first free to insert (last deleted) row in the block.
-   @require !(self.deleted.is_empty() && self.idx == CHUNK_SIZE) : "The block is already full."
-   @ensure return >= 0 && return < CHUNK_SIZE : "Index can't be less then 0 and grater then CHUNK_SIZE."
    @return "Index of the row to insert."
 *>
-fn usz Block.pop_free_index(&self) @inline @local {
+fn usz block_pop_free_index(Block* block) @local @inline {
 	usz idx @noinit;
 	
-	switch (self.lifetime) {
-		/* Quick blocks can be only completely filled and reused when they are totally free. */
-		case QUICK: idx = 0;
-		case DYNAMIC: idx = self.deleted.is_empty() ? self.idx++ : self.deleted.pop()!!;
-		case STATIC: idx = self.idx++;
+	switch (block.lifetime) {
+		case DYNAMIC: idx = block.deleted.is_empty() ? block.idx++ : block.deleted.pop()!!;
+		case STATIC: idx = block.idx++;
 	}
 
 	return idx;
 }
 
-module moecs::block::interfaces;
-
-<* Base interface for blocks. *>
-interface BlockGene {
-	fn void 	init();
-	fn bool 	has_free_rows();
-	fn bool 	full();
-	fn bool		free();
-	fn Entity*	insert();
-	fn void 	absorb();
-	fn World*	get_world();
-	fn Lifetime get_lifetime();
-	fn char*	get_chunk(usz idx);
-	fn void		delete(usz idx);
-	fn EntitiesIterator iter();
-	fn bool		next(EntitiesIterator* iter);
+<* Free all block resources *>
+fn void free_block(Block* block) @private {
+	mem::free_aligned(block.entities);
+	free(block.chunks);
 }

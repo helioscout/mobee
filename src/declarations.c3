@@ -2,15 +2,11 @@ module moecs;
 
 import std::collections::map;
 import std::collections::list;
-import std::collections::bitset;
 import std::collections::elastic_array;
 
 /* Size (items count) of the one components chunk or entities collection for each block.
-   Bigger chunk size increase productivity of entities adding, less chunk size speed up
-   reading component while world runing. */
+   Bigger chunk size increase productivity of entities adding, less chunk size can save a bit of memory. */
 
-<* Quick lifetime chunk size. *>
-const usz QUICK_CHUNK_SIZE   = 100;
 <* Dynamic lifetime chunk size. *>
 const usz DYNAMIC_CHUNK_SIZE = 500;
 <* Static lifetime chunk size. *>
@@ -20,37 +16,21 @@ const usz STATIC_CHUNK_SIZE  = 300;
 const usz MAX_COMPONENTS_COUNT = 128;
 <* Maximum tags count available for adding to entity. *>
 const usz MAX_TAGS_COUNT = 128;
+<* Maximum resources count available for adding to the world. *>
+const usz MAX_RESOURCES_COUNT = 128;
 
-<* Quick (lifetime) block. *>
-alias QuickBlock = Block { QUICK_CHUNK_SIZE };
-<* Dynamic (lifetime) block. *>
-alias DynamicBlock = Block { DYNAMIC_CHUNK_SIZE };
-<* Static (lifetime) block. *>
-alias StaticBlock = Block { STATIC_CHUNK_SIZE };
+<* Count of bits in one marker word (element of marker array). *>
+const usz MARKER_BITS_COUNT @private = usz.sizeof * 8;
+<* Size of components marker (array of bitset). *>
+const usz COMPONENTS_MARKER_SIZE @private = (MAX_COMPONENTS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
+<* Size of tags marker (array of bitset). *>
+const usz TAGS_MARKER_SIZE @private = (MAX_TAGS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
 
-<* Quick (lifetime) blocks collection for each world. *>
-alias QuickBlocks = List { QuickBlock* };
-<* Dynamic (lifetime) blocks collection for each world. *>
-alias DynamicBlocks = List { DynamicBlock* };
-<* Static (lifetime) blocks collection for each world. *>
-alias StaticBlocks = List { StaticBlock* };
+<* Blocks collection for each world. *>
+alias Blocks = List { Block* };
 
 <* Worlds collection in the space. *>
 alias Worlds = List { World* };
-
-<* Registered components collection for each world. *>
-alias Components = Elements { Component, MAX_COMPONENTS_COUNT };
-
-<* Registered tags collection for each world. *>
-alias Tags = Elements { Tag, MAX_TAGS_COUNT };
-
-<* Registered resources collection (with values) for each world. *>
-alias Resources = HashMap { typeid, Resource };
-
-<* Marker of added/existed components for the entity. *>
-alias ComponentsMarker = BitSet { MAX_COMPONENTS_COUNT };
-<* Marker of added/existed tags for the entity. *>
-alias TagsMarker = BitSet { MAX_TAGS_COUNT };
 
 <* Pointers to component values when retrieving/getting all. *>
 alias ComponentPointers = ElasticArray { any, MAX_COMPONENTS_COUNT };
@@ -66,17 +46,12 @@ alias Archetypes = List { Archetype* };
 
 <* Entities/blocks lifetime. *>
 enum Lifetime : const inline char {
-   <* Entities that exist for a very short period of time (a few dozen frames).
-      Such blocks will use occupied (used) marker bitset to define that block is free to insert.
-      Insertion should be performed as memory copy operation of whole chunk from static/stack memory,
-      buffers where chunks would be filled enough during entites (components) adding. *>
-   QUICK   = 0b00000001,
    <* Entities whose lifespan is not defined or determined in advance (from one frame to app exit).
       Such blocks will reuse freed after deletion rows to insert new entities. *>
-   DYNAMIC = 0b00000010,
+   DYNAMIC = 0b00000001,
    <* Immortal entities that will exist until the end of the application.
       Such blocks are simply created when necessary, since entities cannot be despawn. *>
-   STATIC  = 0b00000100
+   STATIC  = 0b00000010
 }
 
 <* Kinds of elements that the world can consist of. *>
@@ -96,18 +71,20 @@ enum Element {
 
 <* The state flags for an element (entity or system). *>
 enum ElementState : const inline char {
-   <* Entity is stored in quick lifetime buffer. *>
-   BUFFERED       = 0b00000001,
    <* Entity has been deleted. *>
-   DELETED        = 0b00000010,
+   DELETED        = 0b00000001,
    <* System is enabled. *>
-   ENABLED        = 0b00000100,
+   ENABLED        = 0b00000010,
    <* System has tags in the match query. *>
-   HAS_TAGS       = 0b00001000,
+   HAS_TAGS       = 0b00000100,
    <* System has components in the match query. *>
-   HAS_COMPONENTS = 0b00010000,
+   HAS_COMPONENTS = 0b00001000,
+   <* Indicates that a system is task, has no components or tags in match query. *>
+   IS_TASK        = 0b00010000,
    <* Entity should be re-archetyped at deffered (perform) stage. *>
-   ARCHETYPING    = 0b00100000
+   ARCHETYPING    = 0b00100000,
+   <* Entity should be despawned at deferred (perform) stage. *>
+   DESPAWNING     = 0b01000000
 }
 
 <* Predicate function for match blocks using their intefraces. *>
@@ -133,6 +110,32 @@ enum Approach : char {
 	   that represent entity's components/tags configuration. At each world progress step
 	   all archetypes will be iterated witch applying match condition of each system. *>
 	ARCHETYPE
+}
+
+<* System running phase, determine when system should run during pipeline. *>
+enum Phase {
+	<* System will run once at the beginning of the first progress step. *>
+	START       = 1,
+	<* System will run before update phase. *>
+	PRE_UPDATE  = 2,
+	<* Main phase of each progress step. *>
+	UPDATE      = 0,
+	<* System will run after update phase. *>
+	POST_UPDATE = 3,
+	<* System can be executed only manually using its name, excluded from progress pipeline. *>
+	MANUAL      = 4
+}
+
+<* Systems collections for each running phase. *>
+struct Schedule @private {
+	<* Systems that are being ran at the start phase. *>
+	Systems start;
+	<* Systems that are being ran at the pre-update phase. *>
+	Systems pre_update;
+	<* Systems that are being ran at the update phase. *>
+	Systems update;
+	<* Systems that are being ran at the post-update phase. *>
+	Systems post_update;
 }
 
 <* Deffered actions for the world. *>

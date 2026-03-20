@@ -28,6 +28,10 @@ typedef VecType = float[<2>];
 typedef Tag1 = int;
 typedef Tag2 = int;
 
+const usz MAX_COUNT = 130;
+const usz BITS_COUNT = usz.sizeof * 8;
+const usz MARKER_SIZE = (MAX_COUNT + BITS_COUNT - 1) / BITS_COUNT;
+
 Entity[ecs::QUICK_CHUNK_SIZE] entities;
 Position[ecs::QUICK_CHUNK_SIZE] positions;
 Center[ecs::QUICK_CHUNK_SIZE] centers;
@@ -52,45 +56,55 @@ fn usz? Resource2.to_format(&self, Formatter* f) @dynamic {
 Clock clock @noinit;
 NanoDuration duration @noinit;
 
-fn void system1(Entities entities, World* world) {
-	bool despawned;
-	usz count;
-
-	foreach (entity : entities) {
-		if (count < 100) {
-			entity.add((Position) { .x = 111, .y = 222 });
-			count++;
-		}
-
-		if (!despawned) {
-			entity.despawn();
-			despawned = true;
-		}
+fn void marker_print(usz[MARKER_SIZE] marker) {
+	io::printn("--- marker ---");
+	
+	for (usz i = 0; i < marker.len; i++) {
+		io::printfn("| word %d: %b", i, marker[i]);
 	}
+
+	io::printn("--------------");
+}
+
+fn void system1(Entities entities, World* world) {
+	// bool despawned;
+	// usz count;
+
+	// foreach (entity : entities) {
+	// 	if (count < 100) {
+	// 		entity.add((Position) { .x = 111, .y = 222 });
+	// 		count++;
+	// 	}
+
+	// 	if (!despawned) {
+	// 		entity.despawn();
+	// 		despawned = true;
+	// 	}
+	// }
 }
 
 fn void system2(Entities entities, World* world) {
-	foreach (entity : entities) {
-		if (try Position* p = entity.get(Position)) {
-			p.x += 1;
-		}
+	// foreach (entity : entities) {
+	// 	if (try Position* p = entity.get(Position)) {
+	// 		p.x += 1;
+	// 	}
 		
-		if (try Center* c = entity.get(Center)) {
-			c.cx += 1;
-		}
-	}
+	// 	if (try Center* c = entity.get(Center)) {
+	// 		c.cx += 1;
+	// 	}
+	// }
 }
 
 fn void system3(Entities entities, World* world) {
-	foreach (entity : entities) {
-		if (try Position* p = entity.get(Position)) {
-			p.x += 1;
-		}
+	// foreach (entity : entities) {
+	// 	if (try Position* p = entity.get(Position)) {
+	// 		p.x += 1;
+	// 	}
 		
-		if (try Center* c = entity.get(Center)) {
-			c.cx += 1;
-		}
-	}
+	// 	if (try Center* c = entity.get(Center)) {
+	// 		c.cx += 1;
+	// 	}
+	// }
 }
 
 fn void main() {
@@ -103,6 +117,9 @@ fn void main() {
 	// io::printn((uptr)VecType.typeid);
 	// io::printn((uptr)Tag1.typeid);
 	// io::printn((uptr)Tag2.typeid);
+	// io::printfn("%b", usz.max >> (64 - 62 % 64));
+	// io::printfn("marker: %b", usz.max >> (64 - 3 % 64));
+	// io::printn(3 / 64);
 	io::printfn("Entity size: %s", Entity.sizeof);
 	io::printn("---------");
 	io::printn(Lifetime.QUICK);
@@ -129,6 +146,40 @@ fn void main() {
 		 .mount({ .name = "s1", .components = { Position }, .tags = { Tag1 }, .callback = &system2 })
 		 .mount({ .name = "s2", .components = { Position, Center, VecType }, .tags = { Tag1 }, .callback = &system2 });
 		 // .run();
+
+	// usz[MARKER_SIZE] marker;
+
+	// marker_print(marker);
+	// io::printfn("is all unset: %s", ecs::marker_is_all_unset(MAX_COUNT, MARKER_SIZE, &marker));
+	// ecs::marker_set(MARKER_SIZE, &marker, 7);
+	// ecs::marker_set(MARKER_SIZE, &marker, 63);
+	// ecs::marker_set(MARKER_SIZE, &marker, 129);
+	// io::printfn("is any set: %s", ecs::marker_is_any_set(MAX_COUNT, MARKER_SIZE, &marker));
+	// marker_print(marker);
+	// io::printfn("is 5-th bit set: %s", ecs::marker_is_set(MARKER_SIZE, &marker, 4));
+	// io::printfn("is 64-th bit set: %s", ecs::marker_is_set(MARKER_SIZE, &marker, 63));
+	// io::printfn("is 129-th bit set: %s", ecs::marker_is_set(MARKER_SIZE, &marker, 128));
+	// io::printfn("is 130-th bit set: %s", ecs::marker_is_set(MARKER_SIZE, &marker, 129));
+
+	// for (usz i = 0; i < 130; i++) ecs::marker_set(MARKER_SIZE, &marker, i);
+	
+	// marker_print(marker);
+	// io::printfn("is all set: %s", ecs::marker_is_all_set(MAX_COUNT, MARKER_SIZE, &marker));
+	// ecs::marker_unset(MARKER_SIZE, &marker, 7);
+	// ecs::marker_unset(MARKER_SIZE, &marker, 63);
+	// ecs::marker_unset(MARKER_SIZE, &marker, 129);
+	// marker_print(marker);
+
+	// usz[MARKER_SIZE] marker1 = { usz.max, usz.max, usz.max };
+	// usz[MARKER_SIZE] marker2 = ecs::marker_clone(MARKER_SIZE, &marker1);
+
+	// ecs::marker_unset(MARKER_SIZE, &marker2, 123);
+
+	// marker_print(ecs::marker_xor(MARKER_SIZE, &marker, &marker1));
+	// io::printfn("is equals: %s", ecs::marker_equals(MAX_COUNT, MARKER_SIZE, &marker1, &marker2));
+	// io::printfn("is subset: %s", ecs::marker_is_subset(MAX_COUNT, MARKER_SIZE, &marker1, &marker2));
+	// marker_print(marker1);
+	// marker_print(marker2);
 
 	for (usz i = 0; i < /*ecs::QUICK_CHUNK_SIZE * 1000*/100000 + 3; i++) {
 		world.spawn(QUICK)
