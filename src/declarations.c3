@@ -1,6 +1,5 @@
 module moecs;
 
-import std::collections::map;
 import std::collections::list;
 import std::collections::elastic_array;
 
@@ -12,12 +11,12 @@ const usz DYNAMIC_CHUNK_SIZE = 500;
 <* Static lifetime chunk size. *>
 const usz STATIC_CHUNK_SIZE  = 300;
 
-<* Maximum components count available for adding to entity. *>
-const usz MAX_COMPONENTS_COUNT = 128;
-<* Maximum tags count available for adding to entity. *>
-const usz MAX_TAGS_COUNT = 128;
-<* Maximum resources count available for adding to the world. *>
-const usz MAX_RESOURCES_COUNT = 128;
+<* Maximum components count available for adding to entity (less or equals (usz.max - 1)). *>
+const usz MAX_COMPONENTS_COUNT = 127;
+<* Maximum tags count available for adding to entity (less or equals (usz.max - 1)). *>
+const usz MAX_TAGS_COUNT = 127;
+<* Maximum resources count available for adding to the world (less or equals (usz.max - 1)). *>
+const usz MAX_RESOURCES_COUNT = 127;
 
 <* Count of bits in one marker word (element of marker array). *>
 const usz MARKER_BITS_COUNT @private = usz.sizeof * 8;
@@ -44,8 +43,11 @@ alias Systems = List { System* };
 <* Archetypes collection of the world. *>
 alias Archetypes = List { Archetype* };
 
+<* Indexes type for dynamic lifetime block. *>
+alias Indexes = ElasticArray { usz, DYNAMIC_CHUNK_SIZE };
+
 <* Entities/blocks lifetime. *>
-enum Lifetime : const inline char {
+constdef Lifetime : inline char {
    <* Entities whose lifespan is not defined or determined in advance (from one frame to app exit).
       Such blocks will reuse freed after deletion rows to insert new entities. *>
    DYNAMIC = 0b00000001,
@@ -62,15 +64,16 @@ enum Element {
    <* Tag element type for marking entities with some kind of characteristic.
       Must be defined as a typedef with a simple fundamental underlying type (typedef Tag = int). *>
    TAG,
-   <* Resource element type for storing data in the world that has only one instance, singleton.
-      Must be defined as a struct or typedef custom typs. *>
+	<* Resource element type for storing data in the world that has only one instance, singleton.
+	   Must be defined as a struct or typedef custom type. Resources are not entities without components
+	   as in other ECS, they have own storage and methods. *>
    RESOURCE,
    <* System element type for running actions at each step of the world progress. *>
    SYSTEM
 }
 
 <* The state flags for an element (entity or system). *>
-enum ElementState : const inline char {
+constdef ElementState : inline char {
    <* Entity has been deleted. *>
    DELETED        = 0b00000001,
    <* System is enabled. *>
@@ -87,33 +90,27 @@ enum ElementState : const inline char {
    DESPAWNING     = 0b01000000
 }
 
-<* Predicate function for match blocks using their intefraces. *>
-alias BlockGeneMatch = fn bool (BlockGene block);
-
-<* Callback function for the system. *>
-alias SystemCallback = fn void (Entities entities, World* world);
-
-<* Entities iterator. *>
-struct EntitiesIterator {
-	<* Current entity index. *>
-	usz idx;
-	<* Current entity pointer. *>
-	Entity* entity;
-}
-
 <* Query match approach of slection entities for the systems. *>
 enum Approach : char {
-	<* Using this approach at each progress step all world entites will be iterated
-	   with applying match conditions to select them for each running system. *>
+	<* Using this approach at each progress step all world entities will be iterated
+	   with applying match conditions to select them for each running system.
+	   First, iterates through all entities in the world for which the match condition is checked,
+	   and if the entity matches, it is added to the system's collection of entities.
+	   Then, all systems to which the generated collections are passed are executed in turn.
+	   At the beginning of progress each step, these collections are cleared.
+	   This is a very inefficient method, but it does not involve deferred actions. *>
 	ITERATION,
 	<* Each entity belongs to some unique archetype that is combination of bit flags
 	   that represent entity's components/tags configuration. At each world progress step
-	   all archetypes will be iterated witch applying match condition of each system. *>
+	   all archetypes will be iterated with applying match condition of each system.
+	   If an archetype matches the system query conditions, the system is launched with a list
+	   of entities of that archetype. This is an effective approach, but it requires deferred actions.
+	   The system callback will be invoked for each matching archetype. *>
 	ARCHETYPE
 }
 
 <* System running phase, determine when system should run during pipeline. *>
-enum Phase {
+constdef Phase : inline char {
 	<* System will run once at the beginning of the first progress step. *>
 	START       = 1,
 	<* System will run before update phase. *>
@@ -142,13 +139,26 @@ struct Schedule @private {
 struct Deffered {
 	<* Despawning entities. We need to keep them in the archetypes till end of the current progress step,
 	   otherwise iterators inside systems code can lead to bugs, as they iterate over collections of
-	   the archetypes which we need to delete entities from. Entities will be marked as DELETED but
+	   the archetypes which we need to delete entities from. Entities will be marked as DESPAWNING but
 	   despawned (deleted from the block) at performing stage. Also, a new entity can be written in place
 	   of a deleted entity, then bugs are inevitable since the reference to the deleted entity will
 	   continue to be stored in the archetype collection. *>
 	Entities despawning;
 	<* When tags/components is being added/removed to the entity and world is already running,
-	   entites should not be moved to other archetypes till end of the current progress step,
-	   so this archetyping action is deffered to the perform stage. *>
+	   entities should not be moved to other archetypes till end of the current progress step,
+	   so this archetyping action is deferred to the perform stage. *>
 	Entities archetyping;
+}
+
+<* Callback function for the system.
+   @param entities : "Matched entities for the system."
+   @param world    : "Pointer to the world." *>
+alias SystemCallback = fn void (Entities* entities, World* world);
+
+<* Entities iterator. *>
+struct EntitiesIterator @private {
+	<* Current entity index. *>
+	usz idx;
+	<* Current entity pointer. *>
+	Entity* entity;
 }

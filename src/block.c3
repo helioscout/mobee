@@ -1,10 +1,6 @@
 module moecs;
 
-import std::collections::elastic_array;
 import std::io;
-
-<* Indexes type for dynamic lifetime block. *>
-alias Indexes = ElasticArray { usz, DYNAMIC_CHUNK_SIZE };
 
 <* Block type, building block of the world. *>
 struct Block @private {
@@ -29,13 +25,15 @@ struct Block @private {
 	usz size;
 }
 
-<* Initializes the block. *>
+<* Initializes the block.
+   @param block : "Reference to the block." *>
 fn void block_init(Block* block) @private {
 	block.entities = mem::malloc_aligned(Entity.sizeof * block.size, Entity.alignof);
 	block.chunks = malloc(block.world.components.size * block.size);
 }
 
-<* Checks for existence of free rows (places to insert new entities/components). *>
+<* Checks for existence of free rows (places to insert new entities/components).
+   @param block : "Reference to the block." *>
 fn bool block_has_free_rows(Block* block) @private @inline {
 	switch (block.lifetime) {
 		case DYNAMIC: return block.idx < DYNAMIC_CHUNK_SIZE || block.deleted.size > 0;
@@ -45,7 +43,8 @@ fn bool block_has_free_rows(Block* block) @private @inline {
 	return false;
 }
 
-<* Checks if all rows in the block are filled in. *>
+<* Checks if all rows in the block are filled in.
+   @param block : "Reference to the block." *>
 fn bool block_is_full(Block* block) @private @inline {
 	switch (block.lifetime) {
 		case DYNAMIC: return block.idx == DYNAMIC_CHUNK_SIZE && block.deleted.size == 0;
@@ -55,7 +54,8 @@ fn bool block_is_full(Block* block) @private @inline {
 	return false;
 }
 
-<* Checks that no one row in the block are filled in, it's totally free. *>
+<* Checks that no one row in the block are filled in, it's totally free.
+   @param block : "Reference to the block." *>
 fn bool block_is_free(Block* block) @private @inline {
 	switch (block.lifetime) {
 		case DYNAMIC: return block.idx == 0 || block.deleted.size == block.idx;
@@ -66,8 +66,8 @@ fn bool block_is_free(Block* block) @private @inline {
 }
 
 <* Inserts entity into the block.
-   @return "Pointer to inserted entity."
-*>
+   @param block : "Reference to the block."
+   @return "Pointer to inserted entity." *>
 fn Entity* block_insert(Block* block) @private {
 	usz idx = block_pop_free_index(block);
 
@@ -78,24 +78,23 @@ fn Entity* block_insert(Block* block) @private {
 }
 
 <* Deletes entity from the block.
-   @param idx : "Entity index."
-*>
+   @param block : "Reference to the block."
+   @param idx   : "Entity index." *>
 fn void block_delete(Block* block, usz idx) @private @inline {
 	switch (block.lifetime) {
 		case DYNAMIC: block.deleted.push(idx);
-		case STATIC:  panic("Static entities can't be deleted.");
+		case STATIC:  abort("Static entities can't be deleted.");
 	}
 }
 
 <* Creates iterator of entities.
-   @return "Entities iterator."
-*>
+   @return "Entities iterator." *>
 fn EntitiesIterator block_iter() @private @inline => { .entity = null };
 
 <* Iterate to the next alive (not deleted) entity in the block.
-   @param iter : "Entities iterator."
-   @return "True if next entity found, otherwise - false."
-*>
+   @param block : "Reference to the block."
+   @param iter  : "Entities iterator."
+   @return        "True if next entity found, otherwise - false." *>
 fn bool block_next(Block* block, EntitiesIterator* iter) @private {
 	/* Start from next possible entity index. */
 	usz idx = iter.entity == null ? 0 : iter.idx + 1;
@@ -115,8 +114,8 @@ fn bool block_next(Block* block, EntitiesIterator* iter) @private {
 }
 
 <* Returns index of the first free to insert (last deleted) row in the block.
-   @return "Index of the row to insert."
-*>
+   @param block : "Reference to the block."
+   @return "Index of the row to insert." *>
 fn usz block_pop_free_index(Block* block) @local @inline {
 	usz idx @noinit;
 	
@@ -128,7 +127,8 @@ fn usz block_pop_free_index(Block* block) @local @inline {
 	return idx;
 }
 
-<* Free all block resources *>
+<* Free all block resources.
+   @param block : "Reference to the block." *>
 fn void free_block(Block* block) @private {
 	mem::free_aligned(block.entities);
 	free(block.chunks);

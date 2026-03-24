@@ -33,8 +33,7 @@ struct World {
 }
 
 <* Gets world blocks count for specific (default: all) lifetimes.
-   @param lifetime : "Blocks lifetime flag."
-*>
+   @param lifetime : "Blocks lifetime flag." *>
 fn usz World.size(&self, char lifetime = 0b00000011) {
 	usz size;
 
@@ -57,7 +56,8 @@ macro usz World.size_of(&self, ...) {
 	return self.size($lifetime);
 }
 
-<* Initializes the world. *>
+<* Initializes the world.
+   @param world : "Pointer to the world." *>
 fn void world_init(World* world) @private {
 	world.systems.init(mem);
 	world.dynamics.init(mem);
@@ -78,20 +78,21 @@ fn void world_init(World* world) @private {
 <* Registers element type for the world.
    @param element : "World element kind."
    @param $Type   : "Element (component/tag/resource) type."
-   @return          "Pointer to the world for chain calls."
-*>
+   @return          "Pointer to the world for chain calls." *>
 macro World* World.register(&self, Element element, $Type) {
 	if (self.running) return self;
 	
 	switch (element) {
 		case COMPONENT:
 			components_add(&self.components, $Type.typeid,
-				{ .type = $Type.typeid, .size = $Type.sizeof, .idx = self.components.count });
+				{ .type = $Type.typeid, .size = $Type.sizeof, .alignment = $Type.alignof,
+				  .idx = self.components.count });
 		case TAG:
 			tags_add(&self.tags, $Type.typeid, { .type = $Type.typeid, .idx = self.tags.count });
 		case RESOURCE:
 			resources_add(&self.resources, $Type.typeid,
-				{ .type = $Type.typeid, .size = $Type.sizeof, .idx = self.resources.count });
+				{ .type = $Type.typeid, .size = $Type.sizeof, .alignment = $Type.alignof,
+				  .idx = self.resources.count });
 		case SYSTEM: break;
 	}
 
@@ -100,13 +101,12 @@ macro World* World.register(&self, Element element, $Type) {
 
 <* Mounts new system to the world.
    @param definition : "System definition."
-   @return             "Pointer to the world for chain calls."
-*>
+   @return             "Pointer to the world for chain calls." *>
 fn World* World.mount(&self, SystemDefinition definition) {
-	if (definition.name && self.has_system(definition.name)) panic("System with such name has already been mounted.");
-	if (!definition.name && definition.phase == MANUAL) panic("Systems with MANUAL phase must have a name.");
-	if (definition.callback == null) panic("Callback must be provided.");
-	if (self.running) panic("You can't mount system to already running world.");
+	if (definition.name && self.has_system(definition.name)) abort("System with such name has already been mounted.");
+	if (!definition.name && definition.phase == MANUAL) abort("Systems with MANUAL phase must have a name.");
+	if (definition.callback == null) abort("Callback must be provided.");
+	if (self.running) abort("You can't mount system to already running world.");
 
 	System* system = mem::new(System,
 		{ .name     = definition.name,
@@ -122,7 +122,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
 		if (definition.components.len > 0) {
 			foreach (type : definition.components) {
 				usz idx = component_index(&self.components, type);
-				if (idx != -1) marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
+				if (idx != usz.max) marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
 			}
 
 			system.state |= ElementState.HAS_COMPONENTS;
@@ -131,7 +131,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
 		if (definition.tags.len > 0) {
 			foreach (type : definition.tags) {
 				usz idx = tag_index(&self.tags, type);
-				if (idx != -1) marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
+				if (idx != usz.max) marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
 			}
 
 			system.state |= ElementState.HAS_TAGS;
@@ -154,8 +154,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
 
 <* Unmounts the system from the world.
    @param name : "System name."
-   @return       "Pointer to the world for chain calls."
-*>
+   @return       "Pointer to the world for chain calls." *>
 fn World* World.unmount(&self, String name) {
 	if (try system = self.get_system(name)) {
 		self.schedule.start.remove_item(system);
@@ -173,13 +172,12 @@ fn World* World.unmount(&self, String name) {
 
 <* Runs the world, but at first constructs all neccessary data from registered elements.
    World must has at least one registered component, but can has no tags, resources.
-   @return "Pointer to the world for chain calls."
-*>
+   @return "Pointer to the world for chain calls." *>
 fn World* World.run(&self) {
-	if (self.components.is_empty()) panic("The world has no registered components.");
-	if (world.running) return self;
+	if (self.components.count == 0) abort("The world has no registered components.");
+	if (self.running) return self;
 
-	components_adjust(&world.components);
+	components_adjust(&self.components);
 
 	/* We must re-set all component markers for systems, because order of components
 	   has been changed during adjustment and as a result components indexes changed. */
@@ -207,10 +205,9 @@ fn World* World.run(&self) {
 
 <* Spawns new entity into the world.
    @param lifetime : "Entity lifetime (default: Lifetime.DYNAMIC)."
-   @return           "Pointer to new entity."
-*>
+   @return           "Pointer to new entity." *>
 fn Entity* World.spawn(&self, Lifetime lifetime = DYNAMIC) {
-	if (!self.running) panic("Run the world first.");
+	if (!self.running) abort("Run the world first.");
 
 	Entity* entity = block_insert(get_sparse_block(self, lifetime));
 
@@ -218,8 +215,7 @@ fn Entity* World.spawn(&self, Lifetime lifetime = DYNAMIC) {
 }
 
 <* Despawns entity from the world.
-   @param entity : "Reference to the entity."
-*>
+   @param entity : "Reference to the entity." *>
 fn void World.despawn(&self, Entity* entity) {
 	if (entity.deleted()) return;
 	
@@ -233,19 +229,19 @@ fn void World.despawn(&self, Entity* entity) {
 }
 
 <* Creates new empty block in the world.
+   @param world    : "Pointer to the world."
    @param lifetime : "Block lifetime."
-   @return           "Pointer to newly created block."
-*>
+   @return           "Pointer to newly created block." *>
 fn Block* new_block(World* world, Lifetime lifetime) @local {
 	Block* block;
 
 	switch (lifetime) {
 		case DYNAMIC:
 			block = mem::new(Block, { .lifetime = DYNAMIC, .world = world, .size = DYNAMIC_CHUNK_SIZE });
-			self.dynamics.push(block);
+			world.dynamics.push(block);
 		case STATIC:
-			block = mem::new(StaticBlock, { .lifetime = STATIC, .world = world, .size = STATIC_CHUNK_SIZE });
-			self.statics.push(block);
+			block = mem::new(Block, { .lifetime = STATIC, .world = world, .size = STATIC_CHUNK_SIZE });
+			world.statics.push(block);
 	}
 
 	block_init(block);
@@ -255,26 +251,29 @@ fn Block* new_block(World* world, Lifetime lifetime) @local {
 
 <* Gets reference to the resource value by its type.
    @param $Type : "Resource type."
-   @return "Pointer to the resource."
-   @return? NOT_FOUND : "Resource was not found (registered)."
-*>
+   @return        "Pointer to the resource."
+   @return? NOT_FOUND : "Resource was not found (registered)." *>
 macro void*? World.get(&self, $Type) {
-	if (try resource = self.resources.get_ref($Type.typeid)) {
-		return resource.value.ptr;
+	Resource* r = resources_get(&self.resources, $Type.typeid);
+
+	if (r != null) {
+		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
+		return ptr;
 	}
 
-	return NOT_FOUND?;
+	return NOT_FOUND~;
 }
 
 <* Sets resource value by its type and initializer.
    @param $Type : "Resource type."
    @param #init : "Resource initialization block."
-   @return "Pointer to the world for chain calls."
-*>
+   @return "Pointer to the world for chain calls." *>
 macro World* World.@set(&self, $Type, #init) {
-	if (try resource = self.resources.get_ref($Type.typeid) &&
-		try $Type* value = anycast(resource.value, $Type)) {
-		*value = #init;
+	Resource* r = resources_get(&self.resources, $Type.typeid);
+
+	if (r != null) {
+		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
+		*ptr = #init;
 	}
 
 	return self;
@@ -282,43 +281,26 @@ macro World* World.@set(&self, $Type, #init) {
 
 <* Sets resource value by its instance.
    @param $resource : "Resource instance."
-   @return "Pointer to the world for chain calls."
-*>
+   @return            "Pointer to the world for chain calls." *>
 macro World* World.set(&self, $resource) {
-	if (try resource = self.resources.get_ref($typeof($resource).typeid) &&
-		try $typeof($resource)* value = anycast(resource.value, $typeof($resource))) {
-		*value = $resource;
+	Resource* r = resources_get(&self.resources, $typeof($resource).typeid);
+
+	if (r != null) {
+		$typeof($resource)* ptr = ($typeof($resource)*)(self.resources.storage + r.offset);
+		*ptr = $resource;
 	}
 
 	return self;
 }
 
 <* Step through each entity reference in the world.
-   @param lifetime : "Entities lifetime flag."
-*>
-macro World.@each(&self, char lifetime = 0b00000111; @body(entity, lifetime)) {
-	if (lifetime & Lifetime.QUICK && self.use_quicks) {
-		/* Iterate entities in the buffer. */
-		for (usz idx = 0; idx < self.idx; idx++) {
-			if (!self.deleted.contains(idx)) {	/* Omit deleted entities. */
-				@body(&(*self.buffer)[idx], Lifetime.QUICK);
-			}
-		}
-
-		foreach (block : self.quicks) {
-			EntitiesIterator iter = block.iter();
-
-			while (block.next(&iter)) {
-				@body(iter.entity, Lifetime.QUICK);
-			}
-		}
-	}
-
+   @param lifetime : "Entities lifetime flag." *>
+macro World.@each(&self, char lifetime = 0b00000011; @body(entity, lifetime)) {
 	if (lifetime & Lifetime.DYNAMIC) {
 		foreach (block : self.dynamics) {
-			EntitiesIterator iter = block.iter();
+			EntitiesIterator iter = block_iter();
 
-			while (block.next(&iter)) {
+			while (block_next(block, &iter)) {
 				@body(iter.entity, Lifetime.DYNAMIC);
 			}
 		}
@@ -326,9 +308,9 @@ macro World.@each(&self, char lifetime = 0b00000111; @body(entity, lifetime)) {
 
 	if (lifetime & Lifetime.STATIC) {
 		foreach (block : self.statics) {
-			EntitiesIterator iter = block.iter();
+			EntitiesIterator iter = block_iter();
 
-			while (block.next(&iter)) {
+			while (block_next(block, &iter)) {
 				@body(iter.entity, Lifetime.STATIC);
 			}
 		}
@@ -337,10 +319,9 @@ macro World.@each(&self, char lifetime = 0b00000111; @body(entity, lifetime)) {
 
 <* Checks if system with specific name was mounted.
    @param name : "System name."
-   @return       "True if system exists, otherwise - false."
-*>
+   @return       "True if system exists, otherwise - false." *>
 fn bool World.has_system(&self, String name) {
-	if (name == "") panic("System name can't be empty.");
+	if (name == "") abort("System name can't be empty.");
 
 	foreach (system : self.systems) {
 		if (system.name == name) return true;
@@ -352,74 +333,93 @@ fn bool World.has_system(&self, String name) {
 <* Gets reference to the system by its name.
    @param name : "System name."
    @return       "Pointer to the system."
-   @return? NOT_FOUND : "System was not found (mounted)."
-*>
+   @return? NOT_FOUND : "System was not found (mounted)." *>
 fn System*? World.get_system(&self, String name) {
-	if (name == "") panic("System name can't be empty.");
+	if (name == "") abort("System name can't be empty.");
 
 	foreach (system : self.systems) {
 		if (system.name == name) return system;
 	}
 
-	return NOT_FOUND?;
+	return NOT_FOUND~;
 }
 
-<* Progress one step of the world life.
-   Runs all mounted systems.
-   @require self.running : "Run the world first."
-*>
+<* Progress one step of the world life. Runs all mounted systems for all phases. *>
 fn void World.progress(&self) {
+	if (!self.running) abort("Run the world first.");
+	
 	if (self.approach == ARCHETYPE) {
-		foreach (system : self.systems) {
-			if (system.enabled()) {
-				foreach (archetype : self.archetypes) {
-					if ((!system.has_tags() ||
-							system.tags
-								.and(archetype.tags)
-								.xor(system.tags)
-								.cardinality() == 0) &&
-						(!system.has_components() ||
-							system.components
-								.and(archetype.components)
-								.xor(system.components)
-								.cardinality() == 0)) {
-					   	/* Call system callback for matched archetype. */
-						system.callback(archetype.entities, self);
-					}
-				}
-			}
+		/* Run systems with START phase, we should do it only once. */
+		if (!self.started) {
+			step_archetype(self, &self.schedule.start);
+			self.started = true;
 		}
-		
+	
+		step_archetype(self, &self.schedule.pre_update);
+		step_archetype(self, &self.schedule.update);
+		step_archetype(self, &self.schedule.post_update);
+
 		self.perform();
 	} else if (self.approach == ITERATION) {
-		/* Clear all systems entities collections. */
 		foreach (system : self.systems) {
-			if (system.enabled()) system.entities.clear();
+			if (!is_task(system)) system.entities.clear();
 		}
 	
 		self.@each(; Entity* entity, Lifetime lifetime) {
 			foreach (system : self.systems) {
-				if (system.enabled() &&						/* If system is enabled and                           */
-					system.lifetime & lifetime) {			/* consider system lifetime.                          */
-					if ((!system.has_tags() ||				/* If system query has no tags, or                    */
-							system.tags						/* take system tags bits,                             */
-								.and(entity.tags)			/* perform and (&) with entity tags bits              */
-								.xor(system.tags)			/* and perform xor (^) with system tags bits.         */
-								.cardinality() == 0) &&		/* Ensure that xor prove all system tags match.       */
-						(!system.has_components() ||		/* If system query has no components, or              */
-							system.components				/* take system components bits,                       */
-								.and(entity.components)		/* perform and (&) with entity components bits        */
-								.xor(system.components)		/* and perform xor (^) with system components bits.   */
-								.cardinality() == 0)) {		/* Ensure that xor prove all system components match. */
-						/* Add pointer to entity into system collection of entities for current system call.      */
+				if (system.enabled() && system.lifetime & lifetime) {
+					if ((!system_has_tags(system) ||
+						 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &entity.tags, &system.tags)) &&
+						(!system_has_components(system) ||
+						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &entity.components, &system.components))) {
+						/* Add pointer to entity into system collection of entities for current system call. */
 						system.entities.push(entity);
 					}
 				}
 			}
 		};
 
-		foreach (system : self.systems) {
-			if (system.enabled()) system.callback(system.entities, self);
+		if (!self.started) {
+			step_iteration(self, &self.schedule.start);
+			self.started = true;
+		}
+
+		step_iteration(self, &self.schedule.pre_update);
+		step_iteration(self, &self.schedule.update);
+		step_iteration(self, &self.schedule.post_update);
+	}
+}
+
+<* Progress one step of the world life for one phase and ARCHETYPE approach.
+   @param world   : "Pointer to the world."
+   @param systems : "Collection of the systems of particular phase." *>
+fn void step_archetype(World* world, Systems* systems) @local @inline {
+	foreach (system : *systems) {
+		if (system.enabled()) {
+			if (is_task(system)) {
+				system.callback(null, world);
+			} else {
+				foreach (archetype : world.archetypes) {
+					if ((!system_has_tags(system) ||
+						 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, &system.tags)) &&
+						(!system_has_components(system) ||
+						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, &system.components))) {
+					   	/* Call system callback for matched archetype. */
+						system.callback(&archetype.entities, world);
+					}
+				}
+			}
+		}
+	}
+}
+
+<* Progress one step of the world life for one phase and ITERATION approach.
+   @param world   : "Pointer to the world."
+   @param systems : "Collection of the systems of particular phase." *>
+fn void step_iteration(World* world, Systems* systems) @local @inline {
+	foreach (system : systems) {
+		if (system.enabled()) {
+			system.callback(is_task(system) ? null : &system.entities, world);
 		}
 	}
 }
@@ -431,7 +431,7 @@ fn void World.perform(&self) {
 	/* Perform deffered despawning. */
 	foreach (entity : self.deffered.despawning) {
 		self.despawn(entity);
-		if (entity.archetype != null) entity.archetype.entities.remove_item(entity);
+		archetype_remove(entity);
 	}
 
 	self.deffered.despawning.clear();
@@ -439,7 +439,7 @@ fn void World.perform(&self) {
 	/* Perform deffered archetyping. */
 	foreach (entity : self.deffered.archetyping) {
 		if (entity.state & ElementState.ARCHETYPING != 0 && !entity.deleted()) {
-			entity.archetyping();
+			archetyping(entity);
 			entity.state &= ~ElementState.ARCHETYPING;
 		}
 	}
@@ -448,7 +448,7 @@ fn void World.perform(&self) {
 
 	/* We need to delete empty archetypes. */
 	foreach (archetype : self.archetypes) {
-		if (archetype.entities.len() == 0) archetype.entities.free();
+		if (archetype.entities.len() == 0) free_archetype(archetype);
 	}
 	
 	self.archetypes.remove_if(fn (archetype) => (*archetype).entities.len() == 0);
@@ -457,39 +457,43 @@ fn void World.perform(&self) {
 }
 
 <* Creates new archetype.
-   @param components : "Components bitset."
-   @param tags : "Tags bitset."
-*>
-fn Archetype* World.new_archetype(&self, ComponentsMarker components, TagsMarker tags) @local {
-	Archetype* archetype = mem::new(Archetype, { .components = components, .tags = tags });
+   @param world      : "Pointer to the world."
+   @param components : "Pointer to components bitset."
+   @param tags       : "Pointer to tags bitset." *>
+fn Archetype* new_archetype(World* world, usz[COMPONENTS_MARKER_SIZE]* components,
+	usz[TAGS_MARKER_SIZE]* tags) @local {
+	Archetype* archetype = mem::new(Archetype, {
+		.components = marker_clone(COMPONENTS_MARKER_SIZE, components),
+		.tags = marker_clone(TAGS_MARKER_SIZE, tags) });
 
-	archetype.init();
-	self.archetypes.push(archetype);
+	archetype_init(archetype);
+	world.archetypes.push(archetype);
 
 	return archetype;
 }
 
 <* Gets archetype by query match bitsets.
-   @param components : "Components bitset."
-   @param tags : "Tags bitset."
-   @return "Pointer to archetype."
-*>
-fn Archetype* World.get_archetype(&self, ComponentsMarker components, TagsMarker tags) @private {
-	foreach (archetype : self.archetypes) {
-		if (archetype.components.xor(components).cardinality() == 0 &&
-			archetype.tags.xor(tags).cardinality() == 0) {
+   @param world      : "Pointer to the world."
+   @param components : "Pointer to components bitset."
+   @param tags       : "Pointer to tags bitset."
+   @return             "Pointer to archetype." *>
+fn Archetype* get_archetype(World* world, usz[COMPONENTS_MARKER_SIZE]* components,
+	usz[TAGS_MARKER_SIZE]* tags) @private {
+	foreach (archetype : world.archetypes) {
+		if (marker_equals(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, components) &&
+			marker_equals(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, tags)) {
 			return archetype;
 		}
 	}
 
-	return self.new_archetype(components, tags);
+	return new_archetype(world, components, tags);
 }
 
 <* Gets the reference to block that is available to insert new entities,
    has free rows or newly created one.
+   @param world    : "Pointer to the world."
    @param lifetime : "Block lifetime."
-   @return           "Pointer to available block."
-*>
+   @return           "Pointer to available block." *>
 fn Block* get_sparse_block(World* world, Lifetime lifetime) @local @inline {
 	Blocks* blocks = get_blocks(world, lifetime);
 
@@ -501,9 +505,9 @@ fn Block* get_sparse_block(World* world, Lifetime lifetime) @local @inline {
 }
 
 <* Gets the reference to block that is totally free.
+   @param world    : "Pointer to the world."
    @param lifetime : "Block lifetime."
-   @return           "Pointer to free block."
-*>
+   @return           "Pointer to free block." *>
 fn Block* get_free_block(World* world, Lifetime lifetime) @local @inline @unused {
 	Blocks* blocks = get_blocks(world, lifetime);
 
@@ -515,9 +519,9 @@ fn Block* get_free_block(World* world, Lifetime lifetime) @local @inline @unused
 }
 
 <* Gets blocks collection by its lifetime.
+   @param world    : "Pointer to the world."
    @param lifetime : "Block lifetime."
-   @return           "Pointer to blocks collection"
-*>
+   @return           "Pointer to blocks collection" *>
 fn Blocks* get_blocks(World* world, Lifetime lifetime) @local @inline {
 	switch (lifetime) {
 		case DYNAMIC: return &world.dynamics;

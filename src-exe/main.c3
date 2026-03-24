@@ -14,13 +14,44 @@ struct Center (Printable) {
 	int cx, cy;
 }
 
-struct Resource1 {
+struct Health (Printable) {
+	char hp;
+}
+
+struct Rotation (Printable) {
+	int angle;
+	float rad;
+}
+
+struct Mutation (Printable) {
+	int stage;
+	uint128 skin;
+}
+
+typedef Velocity = float[1];
+
+struct Resource1 (Printable) {
 	bool enabled;
 }
 
-struct Resource2 {
+struct Resource2 (Printable) {
 	bool enabled;
 	int count;
+}
+
+struct Resource3 (Printable) {
+	char* ptr;
+	float[3] data;
+	uint128 some;
+}
+
+struct Resource4 (Printable) {
+	Position pos;
+	Health hp;
+}
+
+struct Resource5 (Printable) {
+	int[10] arr;
 }
 
 typedef VecType = float[<2>];
@@ -32,11 +63,6 @@ const usz MAX_COUNT = 130;
 const usz BITS_COUNT = usz.sizeof * 8;
 const usz MARKER_SIZE = (MAX_COUNT + BITS_COUNT - 1) / BITS_COUNT;
 
-Entity[ecs::QUICK_CHUNK_SIZE] entities;
-Position[ecs::QUICK_CHUNK_SIZE] positions;
-Center[ecs::QUICK_CHUNK_SIZE] centers;
-VecType[ecs::QUICK_CHUNK_SIZE] vectors;
-
 fn usz? Position.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ x: %f, y: %f }", self.x, self.y);
 }
@@ -45,12 +71,36 @@ fn usz? Center.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ cx: %d, cy: %d }", self.cx, self.cy);
 }
 
+fn usz? Health.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ hp: %d }", self.hp);
+}
+
+fn usz? Rotation.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ angle: %d, rad: %f }", self.angle, self.rad);
+}
+
+fn usz? Mutation.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ stage: %d, skin: %f }", self.stage, self.skin);
+}
+
 fn usz? Resource1.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ enabled: %s }", self.enabled);
 }
 
 fn usz? Resource2.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ enabled: %s, count: %d }", self.enabled, self.count);
+}
+
+fn usz? Resource3.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ ptr: %p, data: %s, some: %d }", self.ptr, self.data, self.some);
+}
+
+fn usz? Resource4.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ pos: %s, hp: %s }", self.pos, self.hp);
+}
+
+fn usz? Resource5.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ arr: %s }", self.arr);
 }
 
 Clock clock @noinit;
@@ -66,51 +116,85 @@ fn void marker_print(usz[MARKER_SIZE] marker) {
 	io::printn("--------------");
 }
 
-fn void system1(Entities entities, World* world) {
-	// bool despawned;
-	// usz count;
-
-	// foreach (entity : entities) {
-	// 	if (count < 100) {
-	// 		entity.add((Position) { .x = 111, .y = 222 });
-	// 		count++;
-	// 	}
-
-	// 	if (!despawned) {
-	// 		entity.despawn();
-	// 		despawned = true;
-	// 	}
-	// }
+fn void startup(Entities* entities, World* world) {
+	io::printn("-- startup system...");
 }
 
-fn void system2(Entities entities, World* world) {
-	// foreach (entity : entities) {
-	// 	if (try Position* p = entity.get(Position)) {
-	// 		p.x += 1;
-	// 	}
-		
-	// 	if (try Center* c = entity.get(Center)) {
-	// 		c.cx += 1;
-	// 	}
-	// }
+fn void system1(Entities* entities, World* world) {
+	bool despawned;
+	usz count;
+
+	foreach (entity : entities) {
+		if (count < 100) {
+			entity.add((Position) { .x = 111, .y = 222 });
+			count++;
+		}
+
+		if (!despawned && !entity.is_static()) {
+			entity.despawn();
+			despawned = true;
+		}
+	}
 }
 
-fn void system3(Entities entities, World* world) {
-	// foreach (entity : entities) {
-	// 	if (try Position* p = entity.get(Position)) {
-	// 		p.x += 1;
-	// 	}
+fn void system2(Entities* entities, World* world) {
+	foreach (entity : entities) {
+		if (try Position* p = entity.get(Position)) {
+			p.x += 1;
+		}
 		
-	// 	if (try Center* c = entity.get(Center)) {
-	// 		c.cx += 1;
-	// 	}
-	// }
+		if (try Center* c = entity.get(Center)) {
+			c.cx += 1;
+		}
+	}
+}
+
+fn void system3(Entities* entities, World* world) {
+	foreach (entity : entities) {
+		if (try Position* p = entity.get(Position)) {
+			p.x += 1;
+		}
+		
+		if (try Center* c = entity.get(Center)) {
+			c.cx += 1;
+		}
+	}
+}
+
+fn void system4(Entities* entities, World* world) {
+	io::printn("-- manual system...");
 }
 
 fn void main() {
 	ecs::init();
 
-	World* world = ecs::new(&entities);
+	World* world = ecs::new();
+
+	io::printn("--- registering ---");
+	world.register(COMPONENT, Position)
+		 .register(COMPONENT, Center)
+		 .register(COMPONENT, VecType)
+		 .register(COMPONENT, Mutation)
+		 .register(COMPONENT, Health)
+		 .register(COMPONENT, Rotation)
+		 .register(COMPONENT, Velocity)
+		 .register(RESOURCE, Resource1)
+		 .register(RESOURCE, Resource2)
+		 .register(RESOURCE, Resource3)
+		 .register(RESOURCE, Resource4)
+		 .register(RESOURCE, Resource5)
+		 .register(TAG, Tag1)
+		 .register(TAG, Tag2)
+		 .mount({ .callback = &startup, .phase = START })
+		 .mount({ .tags = { Tag1 }, .callback = &system1 })
+		 .mount({ .tags = { Tag2 }, .callback = &system1 })
+		 .mount({ .components = { Position, Center }, .callback = &system3 })
+		 .mount({ .components = { Position, Center }, .tags = { Tag1, Tag2 }, .callback = &system3 })
+		 .mount({ .name = "s1", .components = { Position }, .tags = { Tag1 }, .callback = &system2 })
+		 .mount({ .name = "s2", .components = { Center }, .tags = { Tag1 }, .callback = &system2 })
+		 .mount({ .name = "m_sys", .callback = &system4, .phase = MANUAL })
+		 .run();
+	io::printn("--- world is running ---");
 
 	// io::printn((uptr)Position.typeid);
 	// io::printn((uptr)Center.typeid);
@@ -121,31 +205,7 @@ fn void main() {
 	// io::printfn("marker: %b", usz.max >> (64 - 3 % 64));
 	// io::printn(3 / 64);
 	io::printfn("Entity size: %s", Entity.sizeof);
-	io::printn("---------");
-	io::printn(Lifetime.QUICK);
-	io::printn(Lifetime.DYNAMIC);
-	io::printn(Lifetime.STATIC);
-	io::printn(Lifetime.QUICK | Lifetime.STATIC);
-	io::printn(world.size(Lifetime.QUICK | Lifetime.STATIC));
-	io::printn("---------");
-	io::printn(world.size_of(Lifetime.QUICK, Lifetime.DYNAMIC));
 	// io::printn(Tag1.typeid == Tag1.typeid);
-
-	io::printn("--- registering ---");
-	world.register(COMPONENT, Position, &positions)
-		 .register(COMPONENT, Center, &centers)
-		 .register(COMPONENT, VecType, &vectors)
-		 .register(RESOURCE, Resource1)
-		 .register(RESOURCE, Resource2)
-		 .register(TAG, Tag1)
-		 .register(TAG, Tag2)
-		 .mount({ .tags = { Tag1 }, .callback = &system1 })
-		 .mount({ .tags = { Tag2 }, .callback = &system1 })
-		 .mount({ .components = { Position, Center }, .callback = &system1 })
-		 .mount({ .components = { Position, Center }, .tags = { Tag1, Tag2 }, .callback = &system3 })
-		 .mount({ .name = "s1", .components = { Position }, .tags = { Tag1 }, .callback = &system2 })
-		 .mount({ .name = "s2", .components = { Position, Center, VecType }, .tags = { Tag1 }, .callback = &system2 });
-		 // .run();
 
 	// usz[MARKER_SIZE] marker;
 
@@ -181,15 +241,54 @@ fn void main() {
 	// marker_print(marker1);
 	// marker_print(marker2);
 
-	for (usz i = 0; i < /*ecs::QUICK_CHUNK_SIZE * 1000*/100000 + 3; i++) {
-		world.spawn(QUICK)
-			.@add(Position, { .x = (double)i + 10, .y = (double)i + 20 });
+	world.@set(Resource1, { .enabled = true })
+		 .@set(Resource2, { .count = 10 })
+		 .@set(Resource3, { .some = 200 });
+
+	if (try Resource1* r1 = world.get(Resource1)) {
+		io::printn(r1);
 	}
 
-	world.@each(Lifetime.QUICK; Entity* entity, Lifetime lifetime) {
-		if (try Position* p = entity.get(Position)) {
-			// io::printn(*p);
-		}
+	if (try Resource3* r3 = world.get(Resource3)) {
+		io::printn(r3);
+	}
+
+	world.@set(Resource1, { .enabled = false })
+		 .@set(Resource3, { .some = 900 });
+
+	if (try Resource1* r1 = world.get(Resource1)) {
+		io::printn(r1);
+	}
+
+	if (try Resource3* r3 = world.get(Resource3)) {
+		io::printn(r3);
+	}
+
+	io::printfn("-- spawning statics ( %d ) --", 100000 + 3);
+	clock = clock::now();
+
+	for (usz i = 0; i < 100000 + 3; i++) {
+		world.spawn(STATIC)
+			.@add(Position, { .x = (double)i + 10, .y = (double)i + 20 })
+			.@add(Center,   { .cx = (int)i + 20, .cy = (int)i + 20 })
+			.@add(Health,   { .hp = 30 })
+			.@add(Rotation, { .angle = 90 })
+			.@add(Velocity, { 50 })
+			.@add(VecType,  { 10, 20 })
+			.@add(Mutation, { .skin = 11 });
+	}
+
+	duration = clock.mark();
+	io::printfn("-- ellapsed: %s", duration);
+
+	world.@each(; Entity* entity, Lifetime lifetime) {
+		// if (try Position* p = entity.get(Position)) {
+		// 	io::printn(*p);
+		// }
+		
+		// if (try Center* c = entity.get(Center)) {
+		// 	io::printn(*c);
+		// }
 	};
 
 	// world.spawn(QUICK)
@@ -204,9 +303,14 @@ fn void main() {
 	// 	.add((Position){ .x = 1, .y = 1 })
 	// 	.add((Center){ .cx = 1, .cy = 1 });
 		
-	Entity* e = world.spawn(QUICK);
-		// .@add(Position, { .x = 1, .y = 1 })
-		// .@add(Center, { .cx = 1, .cy = 1 });
+	Entity* e = world.spawn(DYNAMIC)
+		.@add(Position, { .x = 1, .y = 1 })
+		.@add(Center,   { .cx = 1, .cy = 1 })
+		.@add(Health,   { .hp = 30 })
+		.@add(Rotation, { .angle = 90 })
+		.@add(Velocity, { 50 })
+		.@add(VecType,  { 10, 20 })
+		.@add(Mutation, { .skin = 11 });
 	
 	Entity* ed = world.spawn(DYNAMIC)
 		.@add(Position, { .x = 2, .y = 2 })
@@ -216,7 +320,7 @@ fn void main() {
 		.@add(Position, { .x = 3, .y = 3 })
 		.@add(Center, { .cx = 3, .cy = 3 });
 		
-	world.spawn(QUICK);
+	world.spawn(DYNAMIC);
 	world.spawn(DYNAMIC);
 	world.spawn(STATIC);
 
@@ -314,39 +418,63 @@ fn void main() {
 	es.untag_all(Tag2, Tag1);
 	io::printn(es.tagged_all(Tag1, Tag2));
 
-	io::printfn("-- spawning dynamics ( %d ) --", /*ecs::DYNAMIC_CHUNK_SIZE * 1000*/500000 + 3);
+	io::printfn("-- spawning dynamicss ( %d ) --", 100000 + 3);
 	clock = clock::now();
 	
-	for (usz i = 0; i < /*ecs::DYNAMIC_CHUNK_SIZE * 1000*/500000 + 3; i++) {
+	for (usz i = 0; i < 100000 + 3; i++) {
+		world.spawn(DYNAMIC)
+			 .@add(Position, { .x = 10, .y = 10 })
+			 .@add(Center,   { .cx = 20, .cy = 20 })
+			 .@add(Health,   { .hp = 30 })
+			 .@add(Rotation, { .angle = 90 })
+			 .@add(Velocity, { 50 })
+			 .@add(VecType,  { 10, 20 })
+			 .@add(Mutation, { .skin = 11 })
+			 .tag(Tag2);
+	}
+
+	duration = clock.mark();
+	io::printfn("-- ellapsed: %s", duration);
+
+	io::printfn("-- spawning dynamics ( %d ) --", 500000 + 3);
+	clock = clock::now();
+	
+	for (usz i = 0; i < 500000 + 3; i++) {
 		Entity* e7 = world.spawn(DYNAMIC);
 
-		e7.add((Position) { .x = 1, .y = 2 }).add((Center) { .cx = 1, .cy = 2 });
+		e7.add((Position) { .x = 1, .y = 2 })
+		  .add((Health)   { .hp = 30 })
+		  .add((Rotation) { .angle = 90 })
+		  .add((Velocity) { 50 });
+		  // .add((Center)   { .cx = 1, .cy = 2 });
 
-		if (i >= 100 && i < 105) e7.tag_all(Tag1, Tag2);
+		e7.tag(Tag1);
+
+		if (i >= 100 && i < 105) {
+			e7.add((Center) { .cx = 1, .cy = 2 });
+			e7.tag(Tag2);
+		}
 	}
 
 	duration = clock.mark();
-	io::printfn("\nEllapsed: %s", duration);
+	io::printfn("-- ellapsed: %s", duration);
 
-	io::printfn("-- spawning quicks ( %d ) --", /*ecs::QUICK_CHUNK_SIZE * 1000*/100000 + 3);
+	io::printfn("-- spawning statics ( %d ) --", 300000 + 3);
 	clock = clock::now();
 	
-	for (usz i = 0; i < /*ecs::QUICK_CHUNK_SIZE * 1000*/100000 + 3; i++) {
-		world.spawn(QUICK).add((Position) { .x = 1, .y = 2 });
+	for (usz i = 0; i < 300000 + 3; i++) {
+		world.spawn(STATIC)
+			 .@add(Position, { .x = 10, .y = 10 })
+			 .@add(Center,   { .cx = 20, .cy = 20 })
+			 .@add(Health,   { .hp = 30 })
+			 .@add(Rotation, { .angle = 90 })
+			 .@add(Velocity, { 50 })
+			 .@add(VecType,  { 10, 20 })
+			 .@add(Mutation, { .skin = 11 });
 	}
 
 	duration = clock.mark();
-	io::printfn("\nEllapsed: %s", duration);
-
-	io::printfn("-- spawning statics ( %d ) --", /*ecs::STATIC_CHUNK_SIZE * 1000*/300000 + 3);
-	clock = clock::now();
-	
-	for (usz i = 0; i < /*ecs::STATIC_CHUNK_SIZE * 1000*/300000 + 3; i++) {
-		world.spawn(STATIC).add((Position) { .x = 1, .y = 2 });
-	}
-
-	duration = clock.mark();
-	io::printfn("\nEllapsed: %s", duration);
+	io::printfn("-- ellapsed: %s", duration);
 
 	io::printfn("--- iterating ---");
 	clock = clock::now();
@@ -355,12 +483,12 @@ fn void main() {
 	
 	world.@each(; Entity* entity, Lifetime lifetime) {
 		if (try Position* p = entity.get(Position)) {
-			count++;
 		}
+		count++;
 	};
 
 	duration = clock.mark();
-	io::printfn("\nEllapsed: %s, count: %s", duration, count);
+	io::printfn("-- ellapsed: %s, count: %s", duration, count);
 
 	// io::readline(tmem)!!;
 
@@ -435,15 +563,16 @@ fn void main() {
 	// duration = clock.mark();
 	// io::printf("\nEllapsed: %s", duration);
 
-	world.run();
-	io::printn("--- world is running ---");
 	world.despawn(e);
 	world.despawn(ed);
 
+	world.perform();
+
 	foreach (archetype : world.archetypes) {
-		io::printfn("archetype: %s, %s, %s", archetype.entities.len(), archetype.components.data, archetype.tags.data);
+		io::printfn("archetype: %s, %s, %s", archetype.entities.len(), archetype.components, archetype.tags);
 	}
 
+	io::printn("--- progress 100 times ---");
 	usz step = 0;
 	clock = clock::now();
 	
@@ -452,7 +581,7 @@ fn void main() {
 	}
 	
 	duration = clock.mark();
-	io::printf("\nStep ellapsed: %s", duration);
+	io::printf("-- ellapsed: %s", duration);
 
 	// io::readline(tmem)!!;
 }

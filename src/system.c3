@@ -49,19 +49,23 @@ struct SystemDefinition {
 }
 
 <* Checks if the system is enabled.
-   @return "True if system is enabled, otherwise - false."
-*>
+   @return "True if system is enabled, otherwise - false." *>
 fn bool System.enabled(&self) @inline => self.state & ElementState.ENABLED != 0;
 
 <* Checks if the system has components.
-   @return "True if system has components, otherwise - false."
-*>
+   @param system : "Pointer to the system."
+   @return "True if system has components, otherwise - false." *>
 fn bool system_has_components(System* system) @private @inline => system.state & ElementState.HAS_COMPONENTS != 0;
 
 <* Checks if the system has tags.
-   @return "True if system has tags, otherwise - false."
-*>
+   @param system : "Pointer to the system."
+   @return "True if system has tags, otherwise - false." *>
 fn bool system_has_tags(System* system) @private @inline => system.state & ElementState.HAS_TAGS != 0;
+
+<* Checks if the system is a task.
+   @param system : "Pointer to the system."
+   @return "True if system is a task, otherwise - false." *>
+fn bool is_task(System* system) @private @inline => system.state & ElementState.IS_TASK != 0;
 
 <* Enables the system. *>
 fn void System.enable(&self) @inline {
@@ -75,7 +79,8 @@ fn void System.disable(&self) @inline {
 
 fn bool System.eq(&self, System other) @operator(==) @inline => self.name == other.name;
 
-<* Free all system resources. *>
+<* Free all system resources.
+   @param system : "Pointer to the system." *>
 fn void free_system(System* system) @private @inline {
 	system.entities.free();
 	free(system.component_types);

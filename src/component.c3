@@ -1,5 +1,8 @@
 module moecs;
 
+import std::math;
+import std::sort;
+
 <* Component elment type description. *>
 struct Component @private {
 	<* Type id of the component type. *>
@@ -8,6 +11,8 @@ struct Component @private {
 	usz idx;
 	<* Type size for allocations. *>
 	usz size;
+	<* Type alignment for allocations. *>
+	usz alignment;
 	<* Component offset (position) in the storage. *>
 	usz offset;
 }
@@ -27,9 +32,8 @@ struct Components @private {
 }
 
 <* Gets index of component type.
-   @param components : "Component types collection."
-   @param type       : "Component type."
-*>
+   @param components : "Reference to component types collection."
+   @param type       : "Component type." *>
 fn usz component_index(Components* components, typeid type) @private @inline {
 	uptr id = (uptr)type;
 
@@ -37,17 +41,16 @@ fn usz component_index(Components* components, typeid type) @private @inline {
 		if (components.ids[i] == id) return i;
 	}
 
-	return -1;
+	return usz.max;
 }
 
 <* Adds new component type into collection.
-   @param components : "Component types collection."
+   @param components : "Reference to component types collection."
    @param type       : "Component type."
-   @param component  : "Instance of the component type."
-*>
+   @param component  : "Instance of the component type." *>
 fn void components_add(Components* components, typeid type, Component component) @private {
-	if (components_has(components, type)) panic("Component already registered.");
-	if (components.count == MAX_COMPONENTS_COUNT) panic("The maximum count of components has been reached.");
+	if (components_has(components, type)) abort("Component already registered.");
+	if (components.count == MAX_COMPONENTS_COUNT) abort("The maximum count of components has been reached.");
 
 	components.ids[components.count] = (uptr)type;
 	components.types[components.count] = component;
@@ -56,30 +59,27 @@ fn void components_add(Components* components, typeid type, Component component)
 }
 
 <* Gets reference to the component type.
-   @param components : "Component types collection."
-   @param type       : "Component type."
-*>
+   @param components : "Reference to component types collection."
+   @param type       : "Component type." *>
 fn Component* components_get(Components* components, typeid type) @private @inline {
 	usz idx = component_index(components, type);
-	return idx != -1 ? &components.types[idx] : null;
+	return idx != usz.max ? &components.types[idx] : null;
 }
 
 <* Checks if the collection has specified component type.
-   @param components : "Component types collection."
+   @param components : "Reference to component types collection."
    @param type       : "Component type."
-   @return             "True if type was found, otherwise - false."
-*>
+   @return             "True if type was found, otherwise - false." *>
 fn bool components_has(Components* components, typeid type) @private @inline {
-	return component_index(components, type) != -1;
+	return component_index(components, type) != usz.max;
 }
 
 <* Adjust component types for efficient access, sort, calculate offsets.
-   @param components : "Component types collection."
-*>
+   @param components : "Reference to component types collection." *>
 fn void components_adjust(Components* components) @private {
 	Component[] types = @clone_slice(components.types[:components.count]);
 
-	sort::quicksort(components.ids[:components.count]);
+	quicksort(components.ids[:components.count]);
 
 	foreach (component : types) {
 		usz idx = component_index(components, component.type);
@@ -93,12 +93,12 @@ fn void components_adjust(Components* components) @private {
 	usz chunk_align = 1;
 
 	for (usz i = 0; i < components.count; i++) {
-		typeid type = components.types[i].type;
+		Component* c = &components.types[i];
 		
-		offset = mem::aligned_offset(offset, type.alignof);
-		components.types[i].offset = offset;
-		offset += type.sizeof;
-		chunk_align = math::max(chunk_align, type.alignof);
+		offset = mem::aligned_offset(offset, c.alignment);
+		c.offset = offset;
+		offset += c.size;
+		chunk_align = max(chunk_align, c.alignment);
 	}
 
 	components.size = mem::aligned_offset(offset, chunk_align);
