@@ -31,16 +31,18 @@ struct Resources @private {
 }
 
 <* Gets index of resource type.
-   @param resources : "Reference to resource types collection."
-   @param type      : "Resource type." *>
-fn usz resource_index(Resources* resources, typeid type) @private @inline {
+   @param resources   : "Reference to resource types collection."
+   @param type        : "Resource type."
+   @return              "Index of the resource type."
+   @return? NOT_FOUND : "Resource type was not found (registered)." *>
+fn usz? resource_index(Resources* resources, typeid type) @private @inline {
 	uptr id = (uptr)type;
 
 	for (usz i = 0; i < resources.count; i++) {
 		if (resources.ids[i] == id) return i;
 	}
 
-	return usz.max;
+	return NOT_FOUND~;
 }
 
 <* Adds new resource type into collection.
@@ -59,10 +61,15 @@ fn void resources_add(Resources* resources, typeid type, Resource resource) @pri
 
 <* Gets reference to the resource type.
    @param resources : "Reference to resource types collection."
-   @param type      : "Resource type." *>
-fn Resource* resources_get(Resources* resources, typeid type) @private @inline {
-	usz idx = resource_index(resources, type);
-	return idx != usz.max ? &resources.types[idx] : null;
+   @param type      : "Resource type."
+   @return              "Pointer to resource's type instance."
+   @return? NOT_FOUND : "Resource type was not found (registered)." *>
+fn Resource*? resources_get(Resources* resources, typeid type) @private @inline {
+	if (try usz idx = resource_index(resources, type)) {
+		return &resources.types[idx];
+	} else {
+		return NOT_FOUND~;
+	}
 }
 
 <* Checks if the collection has specified resource type.
@@ -70,7 +77,7 @@ fn Resource* resources_get(Resources* resources, typeid type) @private @inline {
    @param type      : "Resource type."
    @return            "True if type was found, otherwise - false." *>
 fn bool resources_has(Resources* resources, typeid type) @private @inline {
-	return resource_index(resources, type) != usz.max;
+	return @ok(resource_index(resources, type));
 }
 
 <* Adjust resource types for efficient access, sort, calculate offsets.
@@ -81,7 +88,7 @@ fn void resources_adjust(Resources* resources) @private {
 	quicksort(resources.ids[:resources.count]);
 
 	foreach (resource : types) {
-		usz idx = resource_index(resources, resource.type);
+		usz idx = resource_index(resources, resource.type)!!;
 		resources.types[idx] = resource;
 		resources.types[idx].idx = idx;
 	}

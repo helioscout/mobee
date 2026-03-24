@@ -121,8 +121,9 @@ fn World* World.mount(&self, SystemDefinition definition) {
 	} else {
 		if (definition.components.len > 0) {
 			foreach (type : definition.components) {
-				usz idx = component_index(&self.components, type);
-				if (idx != usz.max) marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
+				if (try usz idx = component_index(&self.components, type)) {
+					marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
+				}
 			}
 
 			system.state |= ElementState.HAS_COMPONENTS;
@@ -130,8 +131,9 @@ fn World* World.mount(&self, SystemDefinition definition) {
 
 		if (definition.tags.len > 0) {
 			foreach (type : definition.tags) {
-				usz idx = tag_index(&self.tags, type);
-				if (idx != usz.max) marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
+				if (try usz idx = tag_index(&self.tags, type)) {
+					marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
+				}
 			}
 
 			system.state |= ElementState.HAS_TAGS;
@@ -186,7 +188,7 @@ fn World* World.run(&self) {
 			marker_clear(COMPONENTS_MARKER_SIZE, &system.components);
 
 			foreach (type : system.component_types) {
-				usz idx = component_index(&self.components, type);
+				usz idx = component_index(&self.components, type)!!;
 				marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
 			}
 		}
@@ -254,9 +256,7 @@ fn Block* new_block(World* world, Lifetime lifetime) @local {
    @return        "Pointer to the resource."
    @return? NOT_FOUND : "Resource was not found (registered)." *>
 macro void*? World.get(&self, $Type) {
-	Resource* r = resources_get(&self.resources, $Type.typeid);
-
-	if (r != null) {
+	if (try Resource* r = resources_get(&self.resources, $Type.typeid)) {
 		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
 		return ptr;
 	}
@@ -269,9 +269,7 @@ macro void*? World.get(&self, $Type) {
    @param #init : "Resource initialization block."
    @return "Pointer to the world for chain calls." *>
 macro World* World.@set(&self, $Type, #init) {
-	Resource* r = resources_get(&self.resources, $Type.typeid);
-
-	if (r != null) {
+	if (try Resource* r = resources_get(&self.resources, $Type.typeid)) {
 		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
 		*ptr = #init;
 	}
@@ -283,9 +281,7 @@ macro World* World.@set(&self, $Type, #init) {
    @param $resource : "Resource instance."
    @return            "Pointer to the world for chain calls." *>
 macro World* World.set(&self, $resource) {
-	Resource* r = resources_get(&self.resources, $typeof($resource).typeid);
-
-	if (r != null) {
+	if (try Resource* r = resources_get(&self.resources, $typeof($resource).typeid)) {
 		$typeof($resource)* ptr = ($typeof($resource)*)(self.resources.storage + r.offset);
 		*ptr = $resource;
 	}

@@ -32,16 +32,18 @@ struct Components @private {
 }
 
 <* Gets index of component type.
-   @param components : "Reference to component types collection."
-   @param type       : "Component type." *>
-fn usz component_index(Components* components, typeid type) @private @inline {
+   @param components  : "Reference to component types collection."
+   @param type        : "Component type."
+   @return              "Index of the component type."
+   @return? NOT_FOUND : "Component type was not found (registered)." *>
+fn usz? component_index(Components* components, typeid type) @private @inline {
 	uptr id = (uptr)type;
 
 	for (usz i = 0; i < components.count; i++) {
 		if (components.ids[i] == id) return i;
 	}
 
-	return usz.max;
+	return NOT_FOUND~;
 }
 
 <* Adds new component type into collection.
@@ -59,11 +61,16 @@ fn void components_add(Components* components, typeid type, Component component)
 }
 
 <* Gets reference to the component type.
-   @param components : "Reference to component types collection."
-   @param type       : "Component type." *>
-fn Component* components_get(Components* components, typeid type) @private @inline {
-	usz idx = component_index(components, type);
-	return idx != usz.max ? &components.types[idx] : null;
+   @param components  : "Reference to component types collection."
+   @param type        : "Component type."
+   @return              "Pointer to component's type instance."
+   @return? NOT_FOUND : "Component type was not found (registered)." *>
+fn Component*? components_get(Components* components, typeid type) @private @inline {
+	if (try usz idx = component_index(components, type)) {
+		return &components.types[idx];
+	} else {
+		return NOT_FOUND~;
+	}
 }
 
 <* Checks if the collection has specified component type.
@@ -71,7 +78,7 @@ fn Component* components_get(Components* components, typeid type) @private @inli
    @param type       : "Component type."
    @return             "True if type was found, otherwise - false." *>
 fn bool components_has(Components* components, typeid type) @private @inline {
-	return component_index(components, type) != usz.max;
+	return @ok(component_index(components, type));
 }
 
 <* Adjust component types for efficient access, sort, calculate offsets.
@@ -82,7 +89,7 @@ fn void components_adjust(Components* components) @private {
 	quicksort(components.ids[:components.count]);
 
 	foreach (component : types) {
-		usz idx = component_index(components, component.type);
+		usz idx = component_index(components, component.type)!!;
 		components.types[idx] = component;
 		components.types[idx].idx = idx;
 	}

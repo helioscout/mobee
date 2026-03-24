@@ -11,11 +11,11 @@ const usz DYNAMIC_CHUNK_SIZE = 500;
 <* Static lifetime chunk size. *>
 const usz STATIC_CHUNK_SIZE  = 300;
 
-<* Maximum components count available for adding to entity (less or equals (usz.max - 1)). *>
+<* Maximum components count available for adding to entity. *>
 const usz MAX_COMPONENTS_COUNT = 127;
-<* Maximum tags count available for adding to entity (less or equals (usz.max - 1)). *>
+<* Maximum tags count available for adding to entity. *>
 const usz MAX_TAGS_COUNT = 127;
-<* Maximum resources count available for adding to the world (less or equals (usz.max - 1)). *>
+<* Maximum resources count available for adding to the world. *>
 const usz MAX_RESOURCES_COUNT = 127;
 
 <* Count of bits in one marker word (element of marker array). *>

@@ -19,16 +19,18 @@ struct Tags @private {
 }
 
 <* Gets index of tag type.
-   @param tags : "Reference to tag types collection."
-   @param type : "Tag type." *>
-fn usz tag_index(Tags* tags, typeid type) @private @inline {
+   @param tags        : "Reference to tag types collection."
+   @param type        : "Tag type."
+   @return              "Index of the tag type."
+   @return? NOT_FOUND : "Tag type was not found (registered)." *>
+fn usz? tag_index(Tags* tags, typeid type) @private @inline {
 	uptr id = (uptr)type;
 
 	for (usz i = 0; i < tags.count; i++) {
 		if (tags.ids[i] == id) return i;
 	}
 
-	return usz.max;
+	return NOT_FOUND~;
 }
 
 <* Adds new tag type into collection.
@@ -46,11 +48,16 @@ fn void tags_add(Tags* tags, typeid type, Tag tag) @private {
 }
 
 <* Gets reference to the tag type.
-   @param tags : "Reference to tag types collection."
-   @param type : "Tag type." *>
-fn Tag* tags_get(Tags* tags, typeid type) @private @inline {
-	usz idx = tag_index(tags, type);
-	return idx != usz.max ? &tags.types[idx] : null;
+   @param tags        : "Reference to tag types collection."
+   @param type        : "Tag type."
+   @return              "Pointer to tag's type instance."
+   @return? NOT_FOUND : "Tag type was not found (registered)." *>
+fn Tag*? tags_get(Tags* tags, typeid type) @private @inline {
+	if (try usz idx = tag_index(tags, type)) {
+		return &tags.types[idx];
+	} else {
+		return NOT_FOUND~;
+	}
 }
 
 <* Checks if the collection has specified tag type.
@@ -58,5 +65,5 @@ fn Tag* tags_get(Tags* tags, typeid type) @private @inline {
    @param type : "Tag type"
    @return       "True if type was found, otherwise - false." *>
 fn bool tags_has(Tags* tags, typeid type) @private @inline {
-	return tag_index(tags, type) != usz.max;
+	return @ok(tag_index(tags, type));
 }

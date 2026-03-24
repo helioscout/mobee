@@ -25,9 +25,7 @@ struct Entity {
    @param $perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
    @return "Pointer to the entity." *>
 macro Entity* Entity.@add(&self, $Type, #init, bool $perform = true) {
-	usz idx = component_index(&self.block.world.components, $Type.typeid);
-
-	if (idx != usz.max) {
+	if (try usz idx = component_index(&self.block.world.components, $Type.typeid)) {
 		self.@set($Type, #init);									/* Storing value in the chunk. */
 		marker_set(COMPONENTS_MARKER_SIZE, &self.components, idx);	/* Setting marker bit.		   */
 		if ($perform) archetyping(self);
@@ -41,9 +39,7 @@ macro Entity* Entity.@add(&self, $Type, #init, bool $perform = true) {
    @param #init : "Component initialization block."
    @return "Pointer to the entity." *>
 macro Entity* Entity.@set(&self, $Type, #init) {
-	Component* c = components_get(&self.block.world.components, $Type.typeid);
-
-	if (c != null) {
+	if (try Component* c = components_get(&self.block.world.components, $Type.typeid)) {
 		$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
 		*ptr = #init;
 	}
@@ -56,9 +52,7 @@ macro Entity* Entity.@set(&self, $Type, #init) {
    @param $perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
    @return "Pointer to the entity." *>
 macro Entity* Entity.add(&self, $component, bool $perform = true) {
-	usz idx = component_index(&self.block.world.components, $typeof($component).typeid);
-
-	if (idx != usz.max) {
+	if (try usz idx = component_index(&self.block.world.components, $typeof($component).typeid)) {
 		self.set($component);										/* Storing value in the chunk. */
 		marker_set(COMPONENTS_MARKER_SIZE, &self.components, idx);	/* Setting marker bit.		   */
 		if ($perform) archetyping(self);
@@ -71,9 +65,7 @@ macro Entity* Entity.add(&self, $component, bool $perform = true) {
    @param $component : "Component instance."
    @return "Pointer to the entity." *>
 macro Entity* Entity.set(&self, $component) {
-	Component* c = components_get(&self.block.world.components, $typeof($component).typeid);
-
-	if (c != null) {
+	if (try Component* c = components_get(&self.block.world.components, $typeof($component).typeid)) {
 		$typeof($component)* ptr = ($typeof($component)*)(self.block.chunks
 			+ self.block.world.components.size * self.chunk_idx + c.offset);
 		*ptr = $component;
@@ -87,9 +79,7 @@ macro Entity* Entity.set(&self, $component) {
    @return "Pointer to the component."
    @return? NOT_FOUND : "Component was not found (added)." *>
 macro void*? Entity.get(&self, $Type) {
-	Component* c = components_get(&self.block.world.components, $Type.typeid);
-
-	if (c != null) {
+	if (try Component* c = components_get(&self.block.world.components, $Type.typeid)) {
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
 			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
 			return ptr;
@@ -171,9 +161,7 @@ macro Entity.@each(&self; @body(type, ptr)) {
    @param perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
    @return "Pointer to the entity." *>
 fn Entity* Entity.remove(&self, typeid type, bool perform = true) {
-	usz idx = component_index(&self.block.world.components, type);
-
-	if (idx != usz.max) {
+	if (try usz idx = component_index(&self.block.world.components, type)) {
 		marker_unset(COMPONENTS_MARKER_SIZE, &self.components, idx);
 		if (perform) archetyping(self);
 	}
@@ -199,9 +187,7 @@ macro Entity* Entity.remove_all(&self, ...) {
    @param $Type : "Component type."
    @return "True if entity has a component, otherwise - false." *>
 macro bool Entity.has(&self, $Type) {
-	usz idx = component_index(&self.block.world.components, $Type.typeid);
-
-	if (idx != usz.max) {
+	if (try usz idx = component_index(&self.block.world.components, $Type.typeid)) {
 		return marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, idx);
 	}
 
@@ -215,9 +201,7 @@ fn bool Entity.has_all(&self, typeid... types) {
 	bool has = true;
 	
 	foreach (type : types) {
-		usz idx = component_index(&self.block.world.components, type);
-
-		if (idx != usz.max) {
+		if (try usz idx = component_index(&self.block.world.components, type)) {
 			has = has && marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, idx);
 		} else {
 			has = false;
@@ -232,9 +216,7 @@ fn bool Entity.has_all(&self, typeid... types) {
    @param perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
    @return "Pointer to the entity." *>
 fn Entity* Entity.tag(&self, typeid type, bool perform = true) {
-	usz idx = tag_index(&self.block.world.tags, type);
-
-	if (idx != usz.max) {
+	if (try usz idx = tag_index(&self.block.world.tags, type)) {
 		marker_set(TAGS_MARKER_SIZE, &self.tags, idx);
 		if (perform) archetyping(self);
 	}
@@ -261,9 +243,7 @@ macro Entity* Entity.tag_all(&self, ...) {
    @param perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
    @return "Pointer to the entity." *>
 fn Entity* Entity.untag(&self, typeid type, bool perform = true) {
-	usz idx = tag_index(&self.block.world.tags, type);
-
-	if (idx != usz.max) {
+	if (try usz idx = tag_index(&self.block.world.tags, type)) {
 		marker_unset(TAGS_MARKER_SIZE, &self.tags, idx);
 		if (perform) archetyping(self);
 	}
@@ -289,9 +269,7 @@ macro Entity* Entity.untag_all(&self, ...) {
    @param type : "Tag type id."
    @return "True if the entity has tag, otherwise - false." *>
 fn bool Entity.tagged(&self, typeid type) {
-	usz idx = tag_index(&self.block.world.tags, type);
-
-	if (idx != usz.max) {
+	if (try usz idx = tag_index(&self.block.world.tags, type)) {
 		return marker_is_set(TAGS_MARKER_SIZE, &self.tags, idx);
 	} else {
 		return false;
@@ -305,9 +283,7 @@ fn bool Entity.tagged_all(&self, typeid... types) {
 	bool tagged = true;
 	
 	foreach (type : types) {
-		usz idx = tag_index(&self.block.world.tags, type);
-		
-		if (idx != usz.max) {
+		if (try usz idx = tag_index(&self.block.world.tags, type)) {
 			tagged = tagged && marker_is_set(TAGS_MARKER_SIZE, &self.tags, idx);
 		} else {
 			tagged = false;
