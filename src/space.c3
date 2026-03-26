@@ -4,11 +4,11 @@ module moecs;
 Worlds worlds @private;
 
 <* Gets worlds count. *>
-fn usz size() => worlds.size;
+fn usz size() => worlds.len();
 
 <* Initializes the space (ecs). *>
 fn void init() {
-	worlds.init(mem);
+	worlds.init();
 }
 
 <* Free all worlds of the space. *>

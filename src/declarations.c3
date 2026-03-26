@@ -1,6 +1,5 @@
 module moecs;
 
-import std::collections::list;
 import std::collections::elastic_array;
 
 /* Size (items count) of the one components chunk or entities collection for each block.
@@ -56,8 +55,13 @@ const usz SYSTEMS_LIST_CHUNK_SIZE @private = 500;
 <* Maximum chunks count available for the systems list. *>
 const usz SYSTEMS_LIST_MAX_CHUNKS_COUNT @private = MAX_SYSTEMS_COUNT / SYSTEMS_LIST_CHUNK_SIZE + 1;
 
-<* Worlds collection in the space. *>
-alias Worlds = List { World* };
+<* Maximum worlds count. *>
+const usz MAX_WORLDS_COUNT = 100;
+
+<* Number of world's pointers in the one list chunk (block of memory). *>
+const usz WORLDS_LIST_CHUNK_SIZE @private = 50;
+<* Maximum chunks count available for the worlds list. *>
+const usz WORLDS_LIST_MAX_CHUNKS_COUNT @private = MAX_WORLDS_COUNT / WORLDS_LIST_CHUNK_SIZE + 1;
 
 <* Pointers to component values when retrieving/getting all. *>
 alias ComponentPointers = ElasticArray { any, MAX_COMPONENTS_COUNT };

@@ -24,7 +24,7 @@ fn void Blocks.init(&self) {
 fn usz Blocks.push(&self, Block* block) {
 	/* Check if it is necessary to allocate new (switch to next) chunk (current one is full). */
 	if (self.idx == BLOCKS_LIST_CHUNK_SIZE) {
-		/* Check if capacity allows to cllocate new memory blocks. */
+		/* Check if capacity allows to allocate new memory blocks. */
 		if (self.chunk_idx == BLOCKS_LIST_MAX_CHUNKS_COUNT - 1) abort("Blocks list capacity overflow.");
 		/* Increment current chunk index. */
 		self.chunk_idx++;

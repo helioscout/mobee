@@ -127,17 +127,22 @@ fn void system1(Entities* entities, World* world) {
 	foreach (entity : entities) {
 		if (count < 100) {
 			entity.add((Position) { .x = 111, .y = 222 });
-			count++;
 		}
 
 		if (!despawned && !entity.is_static()) {
 			entity.despawn();
 			despawned = true;
 		}
+
+		count++;
 	}
+
+	// io::printfn("system1 count: %d", count);
 }
 
 fn void system2(Entities* entities, World* world) {
+	// usz count;
+
 	foreach (entity : entities) {
 		if (try Position* p = entity.get(Position)) {
 			p.x += 1;
@@ -146,10 +151,16 @@ fn void system2(Entities* entities, World* world) {
 		if (try Center* c = entity.get(Center)) {
 			c.cx += 1;
 		}
+
+		// count++;
 	}
+
+	// io::printfn("system2 count: %d", count);
 }
 
 fn void system3(Entities* entities, World* world) {
+	// usz count;
+
 	foreach (entity : entities) {
 		if (try Position* p = entity.get(Position)) {
 			p.x += 1;
@@ -158,7 +169,11 @@ fn void system3(Entities* entities, World* world) {
 		if (try Center* c = entity.get(Center)) {
 			c.cx += 1;
 		}
+		
+		// count++;
 	}
+
+	// io::printfn("system3 count: %d", count);
 }
 
 fn void system4(Entities* entities, World* world) {
@@ -166,7 +181,7 @@ fn void system4(Entities* entities, World* world) {
 }
 
 fn void main() {
-mem::@report_heap_allocs_in_scope() {
+// mem::@report_heap_allocs_in_scope() {
 	ecs::init();
 
 	World* world = ecs::new();
@@ -595,12 +610,13 @@ mem::@report_heap_allocs_in_scope() {
 	clock = clock::now();
 	
 	while (step++ < 100) {
-		if (step == 50) {
-			world.unmount("s1");
-			world.unmount("s2");
-		}
+		// if (step == 50) {
+		// 	world.unmount("s1");
+		// 	world.unmount("s2");
+		// }
 		
 		world.progress();
+		// io::printfn("step");
 	}
 	
 	duration = clock.mark();
@@ -609,5 +625,5 @@ mem::@report_heap_allocs_in_scope() {
 	ecs::destroy();
 
 	// io::readline(tmem)!!;
-};
+// };
 }
