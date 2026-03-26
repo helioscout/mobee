@@ -23,7 +23,8 @@ fn void destroy() {
    @param approach : "Query match approach."
    @return           "Pointer to newly created world." *>
 fn World* new(Approach approach = ARCHETYPE) {
-	World* world = mem::new(World, { .approach = approach });
+	World* world = mem::new(World);
+	world.approach = approach;
 	
 	worlds.push(world);
 	world_init(world);

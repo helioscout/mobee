@@ -166,7 +166,7 @@ fn void system4(Entities* entities, World* world) {
 }
 
 fn void main() {
-// mem::@report_heap_allocs_in_scope() {
+mem::@report_heap_allocs_in_scope() {
 	ecs::init();
 
 	World* world = ecs::new();
@@ -604,5 +604,5 @@ fn void main() {
 	ecs::destroy();
 
 	// io::readline(tmem)!!;
-// };
+};
 }

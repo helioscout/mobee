@@ -69,7 +69,7 @@ fn void world_init(World* world) @private {
 	world.schedule.post_update.init(mem);
 	
 	if (world.approach == ARCHETYPE) {
-		world.archetypes.init(mem);
+		world.archetypes.init();
 		world.deferred.despawning.init();
 		world.deferred.archetyping.init();
 	}
@@ -108,13 +108,13 @@ fn World* World.mount(&self, SystemDefinition definition) {
 	if (definition.callback == null) abort("Callback must be provided.");
 	if (self.running) abort("You can't mount system to already running world.");
 
-	System* system = mem::new(System,
-		{ .name     = definition.name,
-		  .callback = definition.callback,
-		  .state    = ENABLED,
-		  .lifetime = definition.lifetime == 0 ? 0b00000011 : definition.lifetime,
-		  .phase    = definition.phase,
-		  .component_types = @clone_slice(definition.components) });
+	System* system = mem::new(System);
+	system.name		= definition.name;
+	system.callback = definition.callback;
+	system.state    = ENABLED;
+	system.lifetime = definition.lifetime == 0 ? 0b00000011 : definition.lifetime;
+	system.phase    = definition.phase;
+	system.component_types = @clone_slice(definition.components);
 
 	if (definition.components.len == 0 && definition.tags.len == 0) {
 		system.state |= ElementState.IS_TASK;
@@ -238,14 +238,17 @@ fn void World.despawn(&self, Entity* entity) {
    @param lifetime : "Block lifetime."
    @return           "Pointer to newly created block." *>
 fn Block* new_block(World* world, Lifetime lifetime) @local {
-	Block* block;
+	Block* block = mem::new(Block);
+	block.world = world;
 
 	switch (lifetime) {
 		case DYNAMIC:
-			block = mem::new(Block, { .lifetime = DYNAMIC, .world = world, .size = DYNAMIC_CHUNK_SIZE });
+			block.lifetime = DYNAMIC;
+			block.size = DYNAMIC_CHUNK_SIZE;
 			world.dynamics.push(block);
 		case STATIC:
-			block = mem::new(Block, { .lifetime = STATIC, .world = world, .size = STATIC_CHUNK_SIZE });
+			block.lifetime = STATIC;
+			block.size = STATIC_CHUNK_SIZE;
 			world.statics.push(block);
 	}
 
@@ -399,7 +402,8 @@ fn void step_archetype(World* world, Systems* systems) @local @inline {
 				system.callback(null, world);
 			} else {
 				foreach (archetype : world.archetypes) {
-					if ((!system_has_tags(system) ||
+					if (archetype.entities.len() > 0 &&
+						(!system_has_tags(system) ||
 						 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, &system.tags)) &&
 						(!system_has_components(system) ||
 						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, &system.components))) {
@@ -445,13 +449,6 @@ fn void World.perform(&self) {
 
 	self.deferred.archetyping.clear();
 
-	/* We need to delete empty archetypes. */
-	foreach (archetype : self.archetypes) {
-		if (archetype.entities.len() == 0) free_archetype(archetype);
-	}
-	
-	self.archetypes.remove_if(fn (archetype) => (*archetype).entities.len() == 0);
-
 	self.performing = false;
 }
 
@@ -461,9 +458,9 @@ fn void World.perform(&self) {
    @param tags       : "Pointer to tags bitset." *>
 fn Archetype* new_archetype(World* world, usz[COMPONENTS_MARKER_SIZE]* components,
 	usz[TAGS_MARKER_SIZE]* tags) @local {
-	Archetype* archetype = mem::new(Archetype, {
-		.components = marker_clone(COMPONENTS_MARKER_SIZE, components),
-		.tags = marker_clone(TAGS_MARKER_SIZE, tags) });
+	Archetype* archetype = mem::new(Archetype);
+	archetype.components = marker_clone(COMPONENTS_MARKER_SIZE, components);
+	archetype.tags = marker_clone(TAGS_MARKER_SIZE, tags);
 
 	archetype_init(archetype);
 	world.archetypes.push(archetype);
