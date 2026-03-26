@@ -17,6 +17,8 @@ fn void destroy() {
 		free_world(world);
 		free(world);
 	}
+
+	worlds.free();
 }
 
 <* Creates new world.

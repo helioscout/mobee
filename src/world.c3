@@ -59,14 +59,14 @@ macro usz World.size_of(&self, ...) {
 <* Initializes the world.
    @param world : "Pointer to the world." *>
 fn void world_init(World* world) @private {
-	world.systems.init(mem);
+	world.systems.init();
 	world.dynamics.init();
 	world.statics.init();
 
-	world.schedule.start.init(mem);
-	world.schedule.pre_update.init(mem);
-	world.schedule.update.init(mem);
-	world.schedule.post_update.init(mem);
+	world.schedule.start.init();
+	world.schedule.pre_update.init();
+	world.schedule.update.init();
+	world.schedule.post_update.init();
 	
 	if (world.approach == ARCHETYPE) {
 		world.archetypes.init();
@@ -158,12 +158,14 @@ fn World* World.mount(&self, SystemDefinition definition) {
    @param name : "System name."
    @return       "Pointer to the world for chain calls." *>
 fn World* World.unmount(&self, String name) {
-	if (try system = self.get_system(name)) {
-		self.schedule.start.remove_item(system);
-		self.schedule.pre_update.remove_item(system);
-		self.schedule.update.remove_item(system);
-		self.schedule.post_update.remove_item(system);
-		self.systems.remove_item(system);
+	if (try idx = get_system_index(self, name)) {
+		System* system = self.systems[idx];
+		
+		self.schedule.start.remove(idx);
+		self.schedule.pre_update.remove(idx);
+		self.schedule.update.remove(idx);
+		self.schedule.post_update.remove(idx);
+		self.systems.remove(idx);
 		
 		free_system(system);
 		free(system);
@@ -341,6 +343,21 @@ fn System*? World.get_system(&self, String name) {
 
 	foreach (system : self.systems) {
 		if (system.name == name) return system;
+	}
+
+	return NOT_FOUND~;
+}
+
+<* Gets system index by its name.
+   @param world : "Pointer to the world."
+   @param name  : "System name."
+   @return        "System index."
+   @return? NOT_FOUND : "System was not found (mounted)." *>
+fn usz? get_system_index(World* world, String name) @private {
+	if (name == "") abort("System name can't be empty.");
+
+	foreach (idx, system : world.systems) {
+		if (system.name == name) return idx;
 	}
 
 	return NOT_FOUND~;

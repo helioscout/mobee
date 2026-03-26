@@ -595,6 +595,11 @@ mem::@report_heap_allocs_in_scope() {
 	clock = clock::now();
 	
 	while (step++ < 100) {
+		if (step == 50) {
+			world.unmount("s1");
+			world.unmount("s2");
+		}
+		
 		world.progress();
 	}
 	

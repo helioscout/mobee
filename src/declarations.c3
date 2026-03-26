@@ -48,14 +48,19 @@ const usz ARCHETYPES_LIST_CHUNK_SIZE @private = 500;
 <* Maximum chunks count available for the archetypes list. *>
 const usz ARCHETYPES_LIST_MAX_CHUNKS_COUNT @private = MAX_ARCHETYPES_COUNT / ARCHETYPES_LIST_CHUNK_SIZE + 1;
 
+<* Maximum systems count. *>
+const usz MAX_SYSTEMS_COUNT = 1000;
+
+<* Number of system's pointers in the one list chunk (block of memory). *>
+const usz SYSTEMS_LIST_CHUNK_SIZE @private = 500;
+<* Maximum chunks count available for the systems list. *>
+const usz SYSTEMS_LIST_MAX_CHUNKS_COUNT @private = MAX_SYSTEMS_COUNT / SYSTEMS_LIST_CHUNK_SIZE + 1;
+
 <* Worlds collection in the space. *>
 alias Worlds = List { World* };
 
 <* Pointers to component values when retrieving/getting all. *>
 alias ComponentPointers = ElasticArray { any, MAX_COMPONENTS_COUNT };
-
-<* Systems collection in the world. *>
-alias Systems = List { System* };
 
 <* Indexes type for dynamic lifetime block. *>
 alias Indexes = ElasticArray { usz, DYNAMIC_CHUNK_SIZE };
