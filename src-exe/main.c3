@@ -166,6 +166,7 @@ fn void system4(Entities* entities, World* world) {
 }
 
 fn void main() {
+// mem::@report_heap_allocs_in_scope() {
 	ecs::init();
 
 	World* world = ecs::new();
@@ -195,6 +196,9 @@ fn void main() {
 		 .mount({ .name = "m_sys", .callback = &system4, .phase = MANUAL })
 		 .run();
 	io::printn("--- world is running ---");
+
+	// Entities entities;
+	// entities.init();
 
 	// io::printn((uptr)Position.typeid);
 	// io::printn((uptr)Center.typeid);
@@ -267,8 +271,12 @@ fn void main() {
 	io::printfn("-- spawning statics ( %d ) --", 100000 + 3);
 	clock = clock::now();
 
+	// foreach (ptr : entities.chunks) {
+	// 	io::printf("%p ", ptr);
+	// }
+
 	for (usz i = 0; i < 100000 + 3; i++) {
-		world.spawn(STATIC)
+		Entity* e = world.spawn(STATIC)
 			.@add(Position, { .x = (double)i + 10, .y = (double)i + 20 })
 			.@add(Center,   { .cx = (int)i + 20, .cy = (int)i + 20 })
 			.@add(Health,   { .hp = 30 })
@@ -276,7 +284,17 @@ fn void main() {
 			.@add(Velocity, { 50 })
 			.@add(VecType,  { 10, 20 })
 			.@add(Mutation, { .skin = 11 });
+
+		// usz idx = entities.push(e);
+
+		// if (i > 99950) {
+		// 	io::printfn("ptr: %p, idx: %d, get: %p", e, idx, entities[idx]);
+		// }
 	}
+
+	// for (usz i = 0; i < 50; i++) {
+	// 	io::printf("%p, ", entities.pop()!!);
+	// }
 
 	duration = clock.mark();
 	io::printfn("-- ellapsed: %s", duration);
@@ -584,4 +602,5 @@ fn void main() {
 	io::printf("-- ellapsed: %s", duration);
 
 	// io::readline(tmem)!!;
+// };
 }

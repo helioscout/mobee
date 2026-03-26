@@ -13,14 +13,18 @@ struct Archetype {
 <* Initializes the archetype.
    @param archetype : "Pointer to the achetype." *>
 fn void archetype_init(Archetype* archetype) @private @inline {
-	archetype.entities.init(mem);
+	archetype.entities.init();
 }
 
 <* Removes entity from archetype.
    @param entity : "Pointer to the entity." *>
 fn void archetype_remove(Entity* entity) @private @inline {
 	if (entity.archetype != null) {
-		entity.archetype.entities.remove_item(entity);
+		if (try Entity* swapped = entity.archetype.entities.remove(entity.arch_idx)) {
+			/* We need to correct swapped (if it was) entity index in the archetype collection. */
+			swapped.arch_idx = entity.arch_idx;
+		}
+
 		entity.archetype = null;
 	}
 }

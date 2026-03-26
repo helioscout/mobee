@@ -16,6 +16,8 @@ struct Entity {
 	usz chunk_idx;
 	<* Archetype reference which entity belongs to. Is null for entities without components/tags. *>
 	Archetype* archetype;
+	<* Entity index in the archetype collection (for fast removing). *>
+	usz arch_idx;
 }
 
 <* Adds component to the entity by type and initializer.
@@ -306,6 +308,10 @@ fn bool Entity.deleted(&self) @inline => self.state & ElementState.DELETED != 0;
    @return "True if entity will be despawned, otherwise - false." *>
 fn bool Entity.despawning(&self) @inline => self.state & ElementState.DESPAWNING != 0;
 
+<* Checks if the entity is deferred for archetyping at the perform stage.
+   @return "True if entity will be archetyped, otherwise - false." *>
+fn bool Entity.archetyping(&self) @inline => self.state & ElementState.ARCHETYPING != 0;
+
 <* Checks if the entity belongs to dynamic lifetime block.
    @return "True if entity is dynamic, otherwise - false." *>
 fn bool Entity.is_dynamic(&self) @inline => self.block.lifetime == DYNAMIC;
@@ -338,7 +344,7 @@ fn void archetyping(Entity* entity) @private {
 		/* Find appropriate archetype or new one. */
 		Archetype* archetype = get_archetype(world, &entity.components, &entity.tags);
 
-		archetype.entities.push(entity);
 		entity.archetype = archetype;
+		entity.arch_idx = archetype.entities.push(entity);
 	}
 }

@@ -70,8 +70,8 @@ fn void world_init(World* world) @private {
 	
 	if (world.approach == ARCHETYPE) {
 		world.archetypes.init(mem);
-		world.deffered.despawning.init(mem);
-		world.deffered.archetyping.init(mem);
+		world.deffered.despawning.init();
+		world.deffered.archetyping.init();
 	}
 }
 
@@ -140,7 +140,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
 		}
 	}
 
-	system.entities.init(mem);
+	if (self.approach == ITERATION) system.entities.init();
 
 	switch (definition.phase) {
 		case START: self.schedule.start.push(system);
@@ -222,8 +222,11 @@ fn void World.despawn(&self, Entity* entity) {
 	if (entity.deleted()) return;
 	
 	if (self.approach == ARCHETYPE && self.running && !self.performing) {
-		self.deffered.despawning.push(entity);
-		entity.state |= ElementState.DESPAWNING;
+		/* Prevent pushing to list several times. */
+		if (!entity.despawning()) {
+			self.deffered.despawning.push(entity);
+			entity.state |= ElementState.DESPAWNING;
+		}
 	} else {
 		block_delete(entity.block, entity.chunk_idx);
 		entity.state |= ElementState.DELETED;
@@ -360,10 +363,10 @@ fn void World.progress(&self) {
 		foreach (system : self.systems) {
 			if (!is_task(system)) system.entities.clear();
 		}
-	
+
 		self.@each(; Entity* entity, Lifetime lifetime) {
 			foreach (system : self.systems) {
-				if (system.enabled() && system.lifetime & lifetime) {
+				if (system.enabled() && !is_task(system) && system.lifetime & lifetime) {
 					if ((!system_has_tags(system) ||
 						 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &entity.tags, &system.tags)) &&
 						(!system_has_components(system) ||
@@ -434,7 +437,7 @@ fn void World.perform(&self) {
 
 	/* Perform deffered archetyping. */
 	foreach (entity : self.deffered.archetyping) {
-		if (entity.state & ElementState.ARCHETYPING != 0 && !entity.deleted()) {
+		if (entity.archetyping() && !entity.deleted()) {
 			archetyping(entity);
 			entity.state &= ~ElementState.ARCHETYPING;
 		}

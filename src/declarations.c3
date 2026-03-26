@@ -7,9 +7,9 @@ import std::collections::elastic_array;
    Bigger chunk size increase productivity of entities adding, less chunk size can save a bit of memory. */
 
 <* Dynamic lifetime chunk size. *>
-const usz DYNAMIC_CHUNK_SIZE = 500;
+const usz DYNAMIC_CHUNK_SIZE @private = 500;
 <* Static lifetime chunk size. *>
-const usz STATIC_CHUNK_SIZE  = 300;
+const usz STATIC_CHUNK_SIZE @private  = 300;
 
 <* Maximum components count available for adding to entity. *>
 const usz MAX_COMPONENTS_COUNT = 127;
@@ -25,6 +25,11 @@ const usz COMPONENTS_MARKER_SIZE @private = (MAX_COMPONENTS_COUNT + MARKER_BITS_
 <* Size of tags marker (array of bitset). *>
 const usz TAGS_MARKER_SIZE @private = (MAX_TAGS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
 
+<* Number of entity's pointers in the one list chunk (block of memory). *>
+const usz ENTITIES_LIST_CHUNK_SIZE @private = 3000;
+<* Maximum chunks count available for the entities list. *>
+const usz ENTITIES_LIST_MAX_CHUNKS_COUNT @private = 1000;
+
 <* Blocks collection for each world. *>
 alias Blocks = List { Block* };
 
@@ -33,9 +38,6 @@ alias Worlds = List { World* };
 
 <* Pointers to component values when retrieving/getting all. *>
 alias ComponentPointers = ElasticArray { any, MAX_COMPONENTS_COUNT };
-
-<* List of entities for system query result and other purposes. *>
-alias Entities = List { Entity* };
 
 <* Systems collection in the world. *>
 alias Systems = List { System* };
@@ -162,3 +164,8 @@ struct EntitiesIterator @private {
 	<* Current entity pointer. *>
 	Entity* entity;
 }
+
+<* Accessing element is out of bounds of the collection. *>
+faultdef OUT_OF_BOUNDS;
+<* There is no element to swap with removed one in the collection. *>
+faultdef NO_SWAPPED_ELEMENT;
