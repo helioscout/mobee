@@ -329,7 +329,7 @@ fn void archetyping(Entity* entity) @private {
 
 	if (world.running && !world.performing) {
 		if (entity.state & ElementState.ARCHETYPING == 0) {
-			world.deffered.archetyping.push(entity);
+			world.deferred.archetyping.push(entity);
 			entity.state |= ElementState.ARCHETYPING;
 		}
 

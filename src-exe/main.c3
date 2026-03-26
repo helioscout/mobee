@@ -601,6 +601,8 @@ fn void main() {
 	duration = clock.mark();
 	io::printf("-- ellapsed: %s", duration);
 
+	ecs::destroy();
+
 	// io::readline(tmem)!!;
 // };
 }

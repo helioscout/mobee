@@ -26,12 +26,19 @@ const usz COMPONENTS_MARKER_SIZE @private = (MAX_COMPONENTS_COUNT + MARKER_BITS_
 const usz TAGS_MARKER_SIZE @private = (MAX_TAGS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
 
 <* Number of entity's pointers in the one list chunk (block of memory). *>
-const usz ENTITIES_LIST_CHUNK_SIZE @private = 3000;
+const usz ENTITIES_LIST_CHUNK_SIZE @private = 2000;
 <* Maximum chunks count available for the entities list. *>
 const usz ENTITIES_LIST_MAX_CHUNKS_COUNT @private = 1000;
 
-<* Blocks collection for each world. *>
-alias Blocks = List { Block* };
+<* As far as we have entities list bounds, we can calculate maximum entities count.
+   You should increase two previous constants to control entities amount in you app. *>
+const usz MAX_ENTITIES_COUNT = ENTITIES_LIST_CHUNK_SIZE * ENTITIES_LIST_MAX_CHUNKS_COUNT;
+
+<* Number of block's pointers in the one list chunk (block of memory). *>
+const usz BLOCKS_LIST_CHUNK_SIZE @private = 500;
+<* Maximum chunks count available for the blocks list. *>
+const usz BLOCKS_LIST_MAX_CHUNKS_COUNT @private = MAX_ENTITIES_COUNT / @max(DYNAMIC_CHUNK_SIZE, STATIC_CHUNK_SIZE)
+	/ BLOCKS_LIST_CHUNK_SIZE + 1;
 
 <* Worlds collection in the space. *>
 alias Worlds = List { World* };
@@ -86,7 +93,7 @@ constdef ElementState : inline char {
    HAS_COMPONENTS = 0b00001000,
    <* Indicates that a system is task, has no components or tags in match query. *>
    IS_TASK        = 0b00010000,
-   <* Entity should be re-archetyped at deffered (perform) stage. *>
+   <* Entity should be re-archetyped at deferred (perform) stage. *>
    ARCHETYPING    = 0b00100000,
    <* Entity should be despawned at deferred (perform) stage. *>
    DESPAWNING     = 0b01000000
@@ -137,8 +144,8 @@ struct Schedule @private {
 	Systems post_update;
 }
 
-<* Deffered actions for the world. *>
-struct Deffered {
+<* Deferred actions for the world. *>
+struct Deferred {
 	<* Despawning entities. We need to keep them in the archetypes till end of the current progress step,
 	   otherwise iterators inside systems code can lead to bugs, as they iterate over collections of
 	   the archetypes which we need to delete entities from. Entities will be marked as DESPAWNING but

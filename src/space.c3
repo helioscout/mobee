@@ -14,7 +14,8 @@ fn void init() {
 <* Free all worlds of the space. *>
 fn void destroy() {
 	foreach (world : worlds) {
-		// TODO.
+		free_world(world);
+		free(world);
 	}
 }
 

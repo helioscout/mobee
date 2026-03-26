@@ -26,10 +26,10 @@ struct World {
 	bool running;
 	<* Indicates that START phase has already executed. *>
 	bool started;
-	<* Indicates that the world is in performing stage (runs deffered actions). *>
+	<* Indicates that the world is in performing stage (runs deferred actions). *>
 	bool performing;
-	<* Deffered actions for the world. *>
-	Deffered deffered;
+	<* Deferred actions for the world. *>
+	Deferred deferred;
 }
 
 <* Gets world blocks count for specific (default: all) lifetimes.
@@ -37,8 +37,8 @@ struct World {
 fn usz World.size(&self, char lifetime = 0b00000011) {
 	usz size;
 
-	if (lifetime & Lifetime.DYNAMIC) size += self.dynamics.size;
-	if (lifetime & Lifetime.STATIC)  size += self.statics.size;
+	if (lifetime & Lifetime.DYNAMIC) size += self.dynamics.len();
+	if (lifetime & Lifetime.STATIC)  size += self.statics.len();
 	
 	return size;
 }
@@ -60,8 +60,8 @@ macro usz World.size_of(&self, ...) {
    @param world : "Pointer to the world." *>
 fn void world_init(World* world) @private {
 	world.systems.init(mem);
-	world.dynamics.init(mem);
-	world.statics.init(mem);
+	world.dynamics.init();
+	world.statics.init();
 
 	world.schedule.start.init(mem);
 	world.schedule.pre_update.init(mem);
@@ -70,8 +70,8 @@ fn void world_init(World* world) @private {
 	
 	if (world.approach == ARCHETYPE) {
 		world.archetypes.init(mem);
-		world.deffered.despawning.init();
-		world.deffered.archetyping.init();
+		world.deferred.despawning.init();
+		world.deferred.archetyping.init();
 	}
 }
 
@@ -224,7 +224,7 @@ fn void World.despawn(&self, Entity* entity) {
 	if (self.approach == ARCHETYPE && self.running && !self.performing) {
 		/* Prevent pushing to list several times. */
 		if (!entity.despawning()) {
-			self.deffered.despawning.push(entity);
+			self.deferred.despawning.push(entity);
 			entity.state |= ElementState.DESPAWNING;
 		}
 	} else {
@@ -423,27 +423,27 @@ fn void step_iteration(World* world, Systems* systems) @local @inline {
 	}
 }
 
-<* Perform deffered actions for the world. *>
+<* Perform deferred actions for the world. *>
 fn void World.perform(&self) {
 	self.performing = true;
 
-	/* Perform deffered despawning. */
-	foreach (entity : self.deffered.despawning) {
+	/* Perform deferred despawning. */
+	foreach (entity : self.deferred.despawning) {
 		self.despawn(entity);
 		archetype_remove(entity);
 	}
 
-	self.deffered.despawning.clear();
+	self.deferred.despawning.clear();
 
-	/* Perform deffered archetyping. */
-	foreach (entity : self.deffered.archetyping) {
+	/* Perform deferred archetyping. */
+	foreach (entity : self.deferred.archetyping) {
 		if (entity.archetyping() && !entity.deleted()) {
 			archetyping(entity);
 			entity.state &= ~ElementState.ARCHETYPING;
 		}
 	}
 
-	self.deffered.archetyping.clear();
+	self.deferred.archetyping.clear();
 
 	/* We need to delete empty archetypes. */
 	foreach (archetype : self.archetypes) {
@@ -528,4 +528,41 @@ fn Blocks* get_blocks(World* world, Lifetime lifetime) @local @inline {
 	}
 
 	return null;
+}
+
+<* Free all world resources.
+   @param world : "Pointer to the world." *>
+fn void free_world(World* world) @private {
+	foreach (system : world.systems) {
+		free_system(system);
+		free(system);
+	}
+
+	foreach (archetype : world.archetypes) {
+		free_archetype(archetype);
+		free(archetype);
+	}
+
+	foreach (block : world.dynamics) {
+		free_block(block);
+		free(block);
+	}
+
+	foreach (block : world.statics) {
+		free_block(block);
+		free(block);
+	}
+
+	world.systems.free();
+	world.archetypes.free();
+	world.dynamics.free();
+	world.statics.free();
+	world.schedule.start.free();
+	world.schedule.pre_update.free();
+	world.schedule.update.free();
+	world.schedule.post_update.free();
+	world.deferred.despawning.free();
+	world.deferred.archetyping.free();
+
+	free(world.resources.storage);
 }
