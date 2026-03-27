@@ -144,13 +144,39 @@ fn void system2(Entities* entities, World* world) {
 	// usz count;
 
 	foreach (entity : entities) {
-		if (try Position* p = entity.get(Position)) {
-			p.x += 1;
-		}
+		entity.@get_2_mut(Position, Center; Position* pos, Center* center) {
+			pos.x += 1;
+			center.cx += 1;
+		};
+
+		// entity.@get_2(Position, Center; pos, center) {
+		// 	pos.x += 1;
+		// 	center.cx += 1;
+		// };
+
+		// entity.@get_mut(Position; Position* pos) {
+		// 	pos.x += 1;
+		// };
 		
-		if (try Center* c = entity.get(Center)) {
-			c.cx += 1;
-		}
+		// entity.@get_mut(Center; Center* center) {
+		// 	center.cx += 1;
+		// };
+
+		// entity.@get(Position; Position pos) {
+		// 	pos.x += 1;
+		// };
+		
+		// entity.@get(Center; Center center) {
+		// 	center.cx += 1;
+		// };
+
+		// if (try Position p = entity.get(Position)) {
+		// 	p.x += 1;
+		// }
+		
+		// if (try Center c = entity.get(Center)) {
+		// 	c.cx += 1;
+		// }
 
 		// count++;
 	}
@@ -162,13 +188,39 @@ fn void system3(Entities* entities, World* world) {
 	// usz count;
 
 	foreach (entity : entities) {
-		if (try Position* p = entity.get(Position)) {
-			p.x += 1;
-		}
+		entity.@get_2_mut(Position, Center; Position* pos, Center* center) {
+			pos.x += 1;
+			center.cx += 1;
+		};
+
+		// entity.@get_2(Position, Center; pos, center) {
+		// 	pos.x += 1;
+		// 	center.cx += 1;
+		// };
+
+		// entity.@get_mut(Position; Position* pos) {
+		// 	pos.x += 1;
+		// };
 		
-		if (try Center* c = entity.get(Center)) {
-			c.cx += 1;
-		}
+		// entity.@get_mut(Center; Center* center) {
+		// 	center.cx += 1;
+		// };
+
+		// entity.@get(Position; Position pos) {
+		// 	pos.x += 1;
+		// };
+
+		// entity.@get(Center; Center center) {
+		// 	center.cx += 1;
+		// };
+
+		// if (try Position p = entity.get(Position)) {
+		// 	p.x += 1;
+		// }
+		
+		// if (try Center c = entity.get(Center)) {
+		// 	c.cx += 1;
+		// }
 		
 		// count++;
 	}
@@ -363,21 +415,21 @@ fn void main() {
 	io::printn(e.has(VecType));
 	io::printn("---------");
 
-	if (try Position* p = e.get(Position) && try Center* c = e.get(Center)) {
+	if (try Position* p = e.get_mut(Position) && try Center* c = e.get_mut(Center)) {
 		io::printn(p);
 		io::printn(c);
 	} else {
 		io::printn("Not found");
 	}
 
-	if (try Position* p = ed.get(Position) && try Center* c = ed.get(Center)) {
+	if (try Position* p = ed.get_mut(Position) && try Center* c = ed.get_mut(Center)) {
 		io::printn(p);
 		io::printn(c);
 	} else {
 		io::printn("Not found");
 	}
 
-	if (try Position* p = es.get(Position) && try Center* c = es.get(Center) && try VecType* v = es.get(VecType)) {
+	if (try Position* p = es.get_mut(Position) && try Center* c = es.get_mut(Center) && try VecType* v = es.get_mut(VecType)) {
 		io::printn(p);
 		io::printn(c);
 	} else {
@@ -387,7 +439,7 @@ fn void main() {
 	io::printn("---------");
 
 	@pool() {
-		foreach (component : e.tget_all(Position, Center, VecType, int)) {
+		foreach (component : e.tget_all_mut(Position, Center, VecType, int)) {
 			switch (component.type) {
 				case Position:
 					io::print("Position: ");
@@ -402,7 +454,7 @@ fn void main() {
 	io::printn("---- all -----");
 
 	@pool() {
-		foreach (component : ed.tall()) {
+		foreach (component : ed.tall_mut()) {
 			switch (component.type) {
 				case Position:
 					io::print("Position: ");
@@ -515,7 +567,7 @@ fn void main() {
 	usz count;
 	
 	world.@each(; Entity* entity, Lifetime lifetime) {
-		if (try Position* p = entity.get(Position)) {
+		if (try Position* p = entity.get_mut(Position)) {
 		}
 		count++;
 	};

@@ -76,11 +76,26 @@ macro Entity* Entity.set(&self, $component) {
 	return self;
 }
 
+<* Gets component value by its type.
+   @param $Type : "Component type."
+   @return "Component value."
+   @return? NOT_FOUND : "Component was not found (added)." *>
+macro Entity.get(&self, $Type) {
+	if (try Component* c = components_get(&self.block.world.components, $Type.typeid)) {
+		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
+			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+			return *ptr;
+		}
+	}
+
+	return NOT_FOUND~;
+}
+
 <* Gets reference to the component value by its type.
    @param $Type : "Component type."
    @return "Pointer to the component."
    @return? NOT_FOUND : "Component was not found (added)." *>
-macro void*? Entity.get(&self, $Type) {
+macro void*? Entity.get_mut(&self, $Type) {
 	if (try Component* c = components_get(&self.block.world.components, $Type.typeid)) {
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
 			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
@@ -91,11 +106,32 @@ macro void*? Entity.get(&self, $Type) {
 	return NOT_FOUND~;
 }
 
+<* Gets component value by its type.
+   @param $Type : "Component type." *>
+macro Entity.@get(&self, $Type; @body(value)) {
+	if (try Component* c = components_get(&self.block.world.components, $Type.typeid)) {
+		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
+			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+			@body(*ptr);
+		}
+	}
+}
+
+<* Gets reference to the component value by its type.
+   @param $Type : "Component type." *>
+macro Entity.@get_mut(&self, $Type; @body(ptr)) {
+	if (try Component* c = components_get(&self.block.world.components, $Type.typeid)) {
+		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
+			@body(($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset));
+		}
+	}
+}
+
 <* Gets references to all components of passed types.
    @param allocator : "Allocator for returning slice underlying array."
    @require $vacount > 0 : "You must pass at least one component type. To get references to all components use all() method instead."
    @return "Slice of any with pointers to component values." *>
-macro any[] Entity.get_all(&self, Allocator allocator, ...) {
+macro any[] Entity.get_all_mut(&self, Allocator allocator, ...) {
 	any[$vacount]* values = (any[$vacount]*)allocator::malloc(allocator, any.sizeof * $vacount);
 	usz idx = 0;	/* We need to know amount of really found component values. */
 
@@ -103,7 +139,7 @@ macro any[] Entity.get_all(&self, Allocator allocator, ...) {
 		var $Type = $vaexpr[$i];
 		
 		$if $Type.kindof == TypeKind.STRUCT || $Type.kindof == TypeKind.TYPEDEF:
-			if (try $Type* value = self.get($Type)) {
+			if (try $Type* value = self.get_mut($Type)) {
 				(*values)[idx++] = value;
 			}
 		$endif
@@ -116,12 +152,12 @@ macro any[] Entity.get_all(&self, Allocator allocator, ...) {
 <* Gets references to all components of passed types. Alocates using temporary allocator.
    Consider call this function inside @pool() { ... }; marco.
    @return "Slice of any with pointers to component values." *>
-macro any[] Entity.tget_all(&self, ...) => self.get_all(tmem, $vasplat);
+macro any[] Entity.tget_all_mut(&self, ...) => self.get_all_mut(tmem, $vasplat);
 
 <* Gets references to all components set in the entity.
    @param allocator : "Allocator for returning slice underlying array."
    @return "Slice of any with pointers to all component values." *>
-fn any[] Entity.all(&self, Allocator allocator) {
+fn any[] Entity.all_mut(&self, Allocator allocator) {
 	ComponentPointers values;
 
 	for (usz idx = 0; idx < self.block.world.components.count; idx++) {
@@ -139,7 +175,7 @@ fn any[] Entity.all(&self, Allocator allocator) {
 <* Gets references to all components set in the entity. Alocates using temporary allocator.
    Consider call this function inside @pool() { ... }; marco.
    @return "Slice of any with pointers to all component values." *>
-fn any[] Entity.tall(&self) => self.all(tmem);
+fn any[] Entity.tall_mut(&self) => self.all_mut(tmem);
 
 <* Step through each component of the entity. Does not make any additional allocations.
    @param type : "Type (typeid) of the component."
