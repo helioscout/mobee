@@ -1,10 +1,10 @@
-module moecs;
+module mobee;
 
 <* The space consists of worlds. *>
 Worlds worlds @private;
 
 <* Gets worlds count. *>
-fn usz size() => worlds.len();
+fn sz size() => worlds.len();
 
 <* Initializes the space (ecs). *>
 fn void init() {

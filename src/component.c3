@@ -1,4 +1,4 @@
-module moecs;
+module mobee;
 
 import std::math;
 import std::sort;
@@ -8,13 +8,13 @@ struct Component @private {
 	<* Type id of the component type. *>
 	typeid type;
 	<* Index of the component in the bitset (entity's components marker). *>
-	usz idx;
+	sz idx;
 	<* Type size for allocations. *>
-	usz size;
+	sz size;
 	<* Type alignment for allocations. *>
-	usz alignment;
+	sz alignment;
 	<* Component offset (position) in the storage. *>
-	usz offset;
+	sz offset;
 }
 
 <* Registered component types collection for each world. *>
@@ -26,9 +26,9 @@ struct Components @private {
 	<* Instances of concrete component type. *>
 	Component[MAX_COMPONENTS_COUNT] types;
 	<* Component types count (last index + 1). *>
-	usz count;
+	sz count;
 	<* Total size in bytes of all components. *>
-	usz size;
+	sz size;
 }
 
 <* Gets index of component type.
@@ -36,10 +36,10 @@ struct Components @private {
    @param type        : "Component type."
    @return              "Index of the component type."
    @return? NOT_FOUND : "Component type was not found (registered)." *>
-fn usz? component_index(Components* components, typeid type) @private @inline {
+fn sz? component_index(Components* components, typeid type) @private @inline {
 	uptr id = (uptr)type;
 
-	for (usz i = 0; i < components.count; i++) {
+	for (sz i = 0; i < components.count; i++) {
 		if (components.ids[i] == id) return i;
 	}
 
@@ -66,7 +66,7 @@ fn void components_add(Components* components, typeid type, Component component)
    @return              "Pointer to component's type instance."
    @return? NOT_FOUND : "Component type was not found (registered)." *>
 fn Component*? components_get(Components* components, typeid type) @private @inline {
-	if (try usz idx = component_index(components, type)) {
+	if (try sz idx = component_index(components, type)) {
 		return &components.types[idx];
 	} else {
 		return NOT_FOUND~;
@@ -89,17 +89,17 @@ fn void components_adjust(Components* components) @private {
 	quicksort(components.ids[:components.count]);
 
 	foreach (component : types) {
-		usz idx = component_index(components, component.type)!!;
+		sz idx = component_index(components, component.type)!!;
 		components.types[idx] = component;
 		components.types[idx].idx = idx;
 	}
 
 	components.types[0].offset = 0;
 
-	usz offset = 0;
-	usz chunk_align = 1;
+	sz offset = 0;
+	sz chunk_align = 1;
 
-	for (usz i = 0; i < components.count; i++) {
+	for (sz i = 0; i < components.count; i++) {
 		Component* c = &components.types[i];
 		
 		offset = mem::aligned_offset(offset, c.alignment);

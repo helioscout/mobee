@@ -1,4 +1,4 @@
-module moecs;
+module mobee;
 
 import std::io;
 
@@ -20,15 +20,15 @@ struct Block @private {
 	Indexes deleted;
 	<* Current inserting index in the block (last inserted index + 1).
 	   If it equals chunk size than new block should be inserted to the world. *>
-	usz idx;
+	sz idx;
 	<* Block chunk size dependent on lifetime. *>
-	usz size;
+	sz size;
 }
 
 <* Initializes the block.
    @param block : "Reference to the block." *>
 fn void block_init(Block* block) @private {
-	block.entities = mem::malloc_aligned(Entity.sizeof * block.size, Entity.alignof);
+	block.entities = mem::malloc_aligned(Entity::size * block.size, Entity::alignment);
 	block.chunks = malloc(block.world.components.size * block.size);
 }
 
@@ -69,7 +69,7 @@ fn bool block_is_free(Block* block) @private @inline {
    @param block : "Reference to the block."
    @return "Pointer to inserted entity." *>
 fn Entity* block_insert(Block* block) @private {
-	usz idx = block_pop_free_index(block);
+	sz idx = block_pop_free_index(block);
 
 	Entity* entity = (Entity*)block.entities + idx;
 	*entity = { .block = block, .chunk_idx = idx };
@@ -80,7 +80,7 @@ fn Entity* block_insert(Block* block) @private {
 <* Deletes entity from the block.
    @param block : "Reference to the block."
    @param idx   : "Entity index." *>
-fn void block_delete(Block* block, usz idx) @private @inline {
+fn void block_delete(Block* block, sz idx) @private @inline {
 	switch (block.lifetime) {
 		case DYNAMIC: block.deleted.push(idx);
 		case STATIC:  abort("Static entities can't be deleted.");
@@ -97,7 +97,7 @@ fn EntitiesIterator block_iter() @private @inline => { .entity = null };
    @return        "True if next entity found, otherwise - false." *>
 fn bool block_next(Block* block, EntitiesIterator* iter) @private {
 	/* Start from next possible entity index. */
-	usz idx = iter.entity == null ? 0 : iter.idx + 1;
+	sz idx = iter.entity == null ? 0 : iter.idx + 1;
 
 	while (idx < block.idx) {
 		if (block.lifetime == DYNAMIC && block.deleted.contains(idx)) {
@@ -116,8 +116,8 @@ fn bool block_next(Block* block, EntitiesIterator* iter) @private {
 <* Returns index of the first free to insert (last deleted) row in the block.
    @param block : "Reference to the block."
    @return "Index of the row to insert." *>
-fn usz block_pop_free_index(Block* block) @local @inline {
-	usz idx @noinit;
+fn sz block_pop_free_index(Block* block) @local @inline {
+	sz idx @noinit;
 	
 	switch (block.lifetime) {
 		case DYNAMIC: idx = block.deleted.is_empty() ? block.idx++ : block.deleted.pop()!!;

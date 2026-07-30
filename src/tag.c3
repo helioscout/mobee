@@ -1,11 +1,11 @@
-module moecs;
+module mobee;
 
 <* Tag element type description. *>
 struct Tag @private {
 	<* Type id of the tag type. *>
 	typeid type;
 	<* Index of the tag in the bitset (entity's tags marker). *>
-	usz idx;
+	sz idx;
 }
 
 struct Tags @private {
@@ -15,7 +15,7 @@ struct Tags @private {
 	<* Instances of concrete tag type. *>
 	Tag[MAX_TAGS_COUNT] types;
 	<* Tag types count (last index + 1). *>
-	usz count;
+	sz count;
 }
 
 <* Gets index of tag type.
@@ -23,10 +23,10 @@ struct Tags @private {
    @param type        : "Tag type."
    @return              "Index of the tag type."
    @return? NOT_FOUND : "Tag type was not found (registered)." *>
-fn usz? tag_index(Tags* tags, typeid type) @private @inline {
+fn sz? tag_index(Tags* tags, typeid type) @private @inline {
 	uptr id = (uptr)type;
 
-	for (usz i = 0; i < tags.count; i++) {
+	for (sz i = 0; i < tags.count; i++) {
 		if (tags.ids[i] == id) return i;
 	}
 
@@ -53,7 +53,7 @@ fn void tags_add(Tags* tags, typeid type, Tag tag) @private {
    @return              "Pointer to tag's type instance."
    @return? NOT_FOUND : "Tag type was not found (registered)." *>
 fn Tag*? tags_get(Tags* tags, typeid type) @private @inline {
-	if (try usz idx = tag_index(tags, type)) {
+	if (try sz idx = tag_index(tags, type)) {
 		return &tags.types[idx];
 	} else {
 		return NOT_FOUND~;

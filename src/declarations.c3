@@ -1,73 +1,73 @@
-module moecs;
+module mobee;
 
-import std::collections::elastic_array;
+import std::collections::fixedlist;
 
 /* Size (items count) of the one components chunk or entities collection for each block.
    Bigger chunk size increase productivity of entities adding, less chunk size can save a bit of memory. */
 
 <* Dynamic lifetime chunk size. *>
-const usz DYNAMIC_CHUNK_SIZE @private = 500;
+const sz DYNAMIC_CHUNK_SIZE @private = 500;
 <* Static lifetime chunk size. *>
-const usz STATIC_CHUNK_SIZE @private  = 300;
+const sz STATIC_CHUNK_SIZE @private  = 300;
 
 <* Maximum components count available for adding to entity. *>
-const usz MAX_COMPONENTS_COUNT = 127;
+const sz MAX_COMPONENTS_COUNT = 127;
 <* Maximum tags count available for adding to entity. *>
-const usz MAX_TAGS_COUNT = 127;
+const sz MAX_TAGS_COUNT = 127;
 <* Maximum resources count available for adding to the world. *>
-const usz MAX_RESOURCES_COUNT = 127;
+const sz MAX_RESOURCES_COUNT = 127;
 
 <* Count of bits in one marker word (element of marker array). *>
-const usz MARKER_BITS_COUNT @private = usz.sizeof * 8;
+const sz MARKER_BITS_COUNT @private = sz::size * 8;
 <* Size of components marker (array of bitset). *>
-const usz COMPONENTS_MARKER_SIZE @private = (MAX_COMPONENTS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
+const sz COMPONENTS_MARKER_SIZE @private = (MAX_COMPONENTS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
 <* Size of tags marker (array of bitset). *>
-const usz TAGS_MARKER_SIZE @private = (MAX_TAGS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
+const sz TAGS_MARKER_SIZE @private = (MAX_TAGS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
 
 <* Number of entity's pointers in the one list chunk (block of memory). *>
-const usz ENTITIES_LIST_CHUNK_SIZE @private = 2000;
+const sz ENTITIES_LIST_CHUNK_SIZE @private = 2000;
 <* Maximum chunks count available for the entities list. *>
-const usz ENTITIES_LIST_MAX_CHUNKS_COUNT @private = 1000;
+const sz ENTITIES_LIST_MAX_CHUNKS_COUNT @private = 1000;
 
 <* As far as we have entities list bounds, we can calculate maximum entities count.
    You should increase two previous constants to control entities amount in you app. *>
-const usz MAX_ENTITIES_COUNT = ENTITIES_LIST_CHUNK_SIZE * ENTITIES_LIST_MAX_CHUNKS_COUNT;
+const sz MAX_ENTITIES_COUNT = ENTITIES_LIST_CHUNK_SIZE * ENTITIES_LIST_MAX_CHUNKS_COUNT;
 
 <* Number of block's pointers in the one list chunk (block of memory). *>
-const usz BLOCKS_LIST_CHUNK_SIZE @private = 500;
+const sz BLOCKS_LIST_CHUNK_SIZE @private = 500;
 <* Maximum chunks count available for the blocks list. *>
-const usz BLOCKS_LIST_MAX_CHUNKS_COUNT @private = MAX_ENTITIES_COUNT / @max(DYNAMIC_CHUNK_SIZE, STATIC_CHUNK_SIZE)
+const sz BLOCKS_LIST_MAX_CHUNKS_COUNT @private = MAX_ENTITIES_COUNT / @max(DYNAMIC_CHUNK_SIZE, STATIC_CHUNK_SIZE)
 	/ BLOCKS_LIST_CHUNK_SIZE + 1;
 
 <* Maximum archetypes count. *>
-const usz MAX_ARCHETYPES_COUNT = MAX_COMPONENTS_COUNT * MAX_COMPONENTS_COUNT * MAX_TAGS_COUNT * MAX_TAGS_COUNT;
+const sz MAX_ARCHETYPES_COUNT = MAX_COMPONENTS_COUNT * MAX_COMPONENTS_COUNT * MAX_TAGS_COUNT * MAX_TAGS_COUNT;
 
 <* Number of archetype's pointers in the one list chunk (block of memory). *>
-const usz ARCHETYPES_LIST_CHUNK_SIZE @private = 500;
+const sz ARCHETYPES_LIST_CHUNK_SIZE @private = 500;
 <* Maximum chunks count available for the archetypes list. *>
-const usz ARCHETYPES_LIST_MAX_CHUNKS_COUNT @private = MAX_ARCHETYPES_COUNT / ARCHETYPES_LIST_CHUNK_SIZE + 1;
+const sz ARCHETYPES_LIST_MAX_CHUNKS_COUNT @private = MAX_ARCHETYPES_COUNT / ARCHETYPES_LIST_CHUNK_SIZE + 1;
 
 <* Maximum systems count. *>
-const usz MAX_SYSTEMS_COUNT = 1000;
+const sz MAX_SYSTEMS_COUNT = 1000;
 
 <* Number of system's pointers in the one list chunk (block of memory). *>
-const usz SYSTEMS_LIST_CHUNK_SIZE @private = 500;
+const sz SYSTEMS_LIST_CHUNK_SIZE @private = 500;
 <* Maximum chunks count available for the systems list. *>
-const usz SYSTEMS_LIST_MAX_CHUNKS_COUNT @private = MAX_SYSTEMS_COUNT / SYSTEMS_LIST_CHUNK_SIZE + 1;
+const sz SYSTEMS_LIST_MAX_CHUNKS_COUNT @private = MAX_SYSTEMS_COUNT / SYSTEMS_LIST_CHUNK_SIZE + 1;
 
 <* Maximum worlds count. *>
-const usz MAX_WORLDS_COUNT = 100;
+const sz MAX_WORLDS_COUNT = 100;
 
 <* Number of world's pointers in the one list chunk (block of memory). *>
-const usz WORLDS_LIST_CHUNK_SIZE @private = 50;
+const sz WORLDS_LIST_CHUNK_SIZE @private = 50;
 <* Maximum chunks count available for the worlds list. *>
-const usz WORLDS_LIST_MAX_CHUNKS_COUNT @private = MAX_WORLDS_COUNT / WORLDS_LIST_CHUNK_SIZE + 1;
+const sz WORLDS_LIST_MAX_CHUNKS_COUNT @private = MAX_WORLDS_COUNT / WORLDS_LIST_CHUNK_SIZE + 1;
 
 <* Pointers to component values when retrieving/getting all. *>
-alias ComponentPointers = ElasticArray { any, MAX_COMPONENTS_COUNT };
+alias ComponentPointers = FixedList { any, MAX_COMPONENTS_COUNT };
 
 <* Indexes type for dynamic lifetime block. *>
-alias Indexes = ElasticArray { usz, DYNAMIC_CHUNK_SIZE };
+alias Indexes = FixedList { sz, DYNAMIC_CHUNK_SIZE };
 
 <* Entities/blocks lifetime. *>
 constdef Lifetime : inline char {
@@ -181,7 +181,7 @@ alias SystemCallback = fn void (Entities* entities, World* world);
 <* Entities iterator. *>
 struct EntitiesIterator @private {
 	<* Current entity index. *>
-	usz idx;
+	sz idx;
 	<* Current entity pointer. *>
 	Entity* entity;
 }

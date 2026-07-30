@@ -1,4 +1,4 @@
-module moecs;
+module mobee;
 
 <* System type. *>
 struct System {
@@ -11,9 +11,9 @@ struct System {
 	   HAS_COMPONENTS: Query component has been registered. For optimization if wasn't. *>
 	ElementState state;
 	<* Components marker, each set bit specifies component in the system match query. *>
-	usz[COMPONENTS_MARKER_SIZE] components;
+	sz[COMPONENTS_MARKER_SIZE] components;
 	<* Tags marker, each set bit specifies tag in the system match query. *>
-	usz[TAGS_MARKER_SIZE] tags;
+	sz[TAGS_MARKER_SIZE] tags;
 	<* System running phase, order in the pipeline. By default equals UPDATE. *>
 	Phase phase;
 	<* Entities lifetime flag to optimize queries and do not process lifetimes

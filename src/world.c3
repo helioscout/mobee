@@ -1,4 +1,4 @@
-module moecs;
+module mobee;
 
 import std::io;
 
@@ -34,8 +34,8 @@ struct World {
 
 <* Gets world blocks count for specific (default: all) lifetimes.
    @param lifetime : "Blocks lifetime flag." *>
-fn usz World.size(&self, char lifetime = 0b00000011) {
-	usz size;
+fn sz World.size(&self, char lifetime = 0b00000011) {
+	sz size;
 
 	if (lifetime & Lifetime.DYNAMIC) size += self.dynamics.len();
 	if (lifetime & Lifetime.STATIC)  size += self.statics.len();
@@ -44,12 +44,12 @@ fn usz World.size(&self, char lifetime = 0b00000011) {
 }
 
 <* Gets world blocks count for specific lifetimes (comma-separated arguments). *>
-macro usz World.size_of(&self, ...) {
+macro sz World.size_of(&self, ...) {
 	char $lifetime;
 	
-	$for var $i = 0; $i < $vacount; $i++:
-		$if @typeid($vaexpr[$i]) == Lifetime.typeid:
-			$lifetime |= $vaexpr[$i];
+	$for var $i = 0; $i < $vaarg.len; $i++:
+		$if @typeid($vaarg[$i]) == Lifetime::typeid:
+			$lifetime |= $vaarg[$i];
 		$endif
 	$endfor
 
@@ -84,14 +84,14 @@ macro World* World.register(&self, Element element, $Type) {
 	
 	switch (element) {
 		case COMPONENT:
-			components_add(&self.components, $Type.typeid,
-				{ .type = $Type.typeid, .size = $Type.sizeof, .alignment = $Type.alignof,
+			components_add(&self.components, $Type::typeid,
+				{ .type = $Type::typeid, .size = $Type::size, .alignment = $Type::alignment,
 				  .idx = self.components.count });
 		case TAG:
-			tags_add(&self.tags, $Type.typeid, { .type = $Type.typeid, .idx = self.tags.count });
+			tags_add(&self.tags, $Type::typeid, { .type = $Type::typeid, .idx = self.tags.count });
 		case RESOURCE:
-			resources_add(&self.resources, $Type.typeid,
-				{ .type = $Type.typeid, .size = $Type.sizeof, .alignment = $Type.alignof,
+			resources_add(&self.resources, $Type::typeid,
+				{ .type = $Type::typeid, .size = $Type::size, .alignment = $Type::alignment,
 				  .idx = self.resources.count });
 		case SYSTEM: break;
 	}
@@ -121,7 +121,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
 	} else {
 		if (definition.components.len > 0) {
 			foreach (type : definition.components) {
-				if (try usz idx = component_index(&self.components, type)) {
+				if (try sz idx = component_index(&self.components, type)) {
 					marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
 				}
 			}
@@ -131,7 +131,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
 
 		if (definition.tags.len > 0) {
 			foreach (type : definition.tags) {
-				if (try usz idx = tag_index(&self.tags, type)) {
+				if (try sz idx = tag_index(&self.tags, type)) {
 					marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
 				}
 			}
@@ -190,7 +190,7 @@ fn World* World.run(&self) {
 			marker_clear(COMPONENTS_MARKER_SIZE, &system.components);
 
 			foreach (type : system.component_types) {
-				usz idx = component_index(&self.components, type)!!;
+				sz idx = component_index(&self.components, type)!!;
 				marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
 			}
 		}
@@ -264,7 +264,7 @@ fn Block* new_block(World* world, Lifetime lifetime) @local {
    @return        "Pointer to the resource."
    @return? NOT_FOUND : "Resource was not found (registered)." *>
 macro void*? World.get(&self, $Type) {
-	if (try Resource* r = resources_get(&self.resources, $Type.typeid)) {
+	if (try Resource* r = resources_get(&self.resources, $Type::typeid)) {
 		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
 		return ptr;
 	}
@@ -277,7 +277,7 @@ macro void*? World.get(&self, $Type) {
    @param #init : "Resource initialization block."
    @return "Pointer to the world for chain calls." *>
 macro World* World.@set(&self, $Type, #init) {
-	if (try Resource* r = resources_get(&self.resources, $Type.typeid)) {
+	if (try Resource* r = resources_get(&self.resources, $Type::typeid)) {
 		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
 		*ptr = #init;
 	}
@@ -289,8 +289,8 @@ macro World* World.@set(&self, $Type, #init) {
    @param $resource : "Resource instance."
    @return            "Pointer to the world for chain calls." *>
 macro World* World.set(&self, $resource) {
-	if (try Resource* r = resources_get(&self.resources, $typeof($resource).typeid)) {
-		$typeof($resource)* ptr = ($typeof($resource)*)(self.resources.storage + r.offset);
+	if (try Resource* r = resources_get(&self.resources, $Typeof($resource)::typeid)) {
+		$Typeof($resource)* ptr = ($Typeof($resource)*)(self.resources.storage + r.offset);
 		*ptr = $resource;
 	}
 
@@ -353,7 +353,7 @@ fn System*? World.get_system(&self, String name) {
    @param name  : "System name."
    @return        "System index."
    @return? NOT_FOUND : "System was not found (mounted)." *>
-fn usz? get_system_index(World* world, String name) @private {
+fn sz? get_system_index(World* world, String name) @private {
 	if (name == "") abort("System name can't be empty.");
 
 	foreach (idx, system : world.systems) {
@@ -473,8 +473,8 @@ fn void World.perform(&self) {
    @param world      : "Pointer to the world."
    @param components : "Pointer to components bitset."
    @param tags       : "Pointer to tags bitset." *>
-fn Archetype* new_archetype(World* world, usz[COMPONENTS_MARKER_SIZE]* components,
-	usz[TAGS_MARKER_SIZE]* tags) @local {
+fn Archetype* new_archetype(World* world, sz[COMPONENTS_MARKER_SIZE]* components,
+	sz[TAGS_MARKER_SIZE]* tags) @local {
 	Archetype* archetype = mem::new(Archetype);
 	archetype.components = marker_clone(COMPONENTS_MARKER_SIZE, components);
 	archetype.tags = marker_clone(TAGS_MARKER_SIZE, tags);
@@ -490,8 +490,8 @@ fn Archetype* new_archetype(World* world, usz[COMPONENTS_MARKER_SIZE]* component
    @param components : "Pointer to components bitset."
    @param tags       : "Pointer to tags bitset."
    @return             "Pointer to archetype." *>
-fn Archetype* get_archetype(World* world, usz[COMPONENTS_MARKER_SIZE]* components,
-	usz[TAGS_MARKER_SIZE]* tags) @private {
+fn Archetype* get_archetype(World* world, sz[COMPONENTS_MARKER_SIZE]* components,
+	sz[TAGS_MARKER_SIZE]* tags) @private {
 	foreach (archetype : world.archetypes) {
 		if (marker_equals(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, components) &&
 			marker_equals(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, tags)) {

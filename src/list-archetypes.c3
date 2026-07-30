@@ -1,4 +1,4 @@
-module moecs;
+module mobee;
 
 <* Archetypes list, growable collection of pointers to archetype.
    Capacity equals ARCHETYPES_LIST_CHUNK_SIZE * ARCHETYPES_LIST_MAX_CHUNKS_COUNT. *>
@@ -7,21 +7,21 @@ struct Archetypes {
 	char*[ARCHETYPES_LIST_MAX_CHUNKS_COUNT] chunks;
 	<* Current inserting index in the last chunk (last inserted index + 1).
 	   If it equals chunk size than new chunk should be allocated. *>
-	usz idx;
+	sz idx;
 	<* Current working (last allocated if list was not cleared yet) chunk index.
 	   When list was being cleared it will be set to 0. *>
-	usz chunk_idx;
+	sz chunk_idx;
 }
 
 <* Initializes list, allocates first chunk. *>
 fn void Archetypes.init(&self) {
-	self.chunks[0] = malloc($sizeof(Archetype*) * ARCHETYPES_LIST_CHUNK_SIZE);
+	self.chunks[0] = malloc(Archetype*::size * ARCHETYPES_LIST_CHUNK_SIZE);
 }
 
 <* Adds archetype to the list.
    @param archetype : "Pointer to the archetype."
    @return "Total index of inserted archetype in the list." *>
-fn usz Archetypes.push(&self, Archetype* archetype) {
+fn sz Archetypes.push(&self, Archetype* archetype) {
 	/* Check if it is necessary to allocate new (switch to next) chunk (current one is full). */
 	if (self.idx == ARCHETYPES_LIST_CHUNK_SIZE) {
 		/* Check if capacity allows to allocate new memory blocks. */
@@ -31,14 +31,14 @@ fn usz Archetypes.push(&self, Archetype* archetype) {
 		/* Checks if the block was not already allocated (before list clearing). */
 		if (self.chunks[self.chunk_idx] == null) {
 			/* Allocate chunk memory block and store pointer to it. */
-			self.chunks[self.chunk_idx] = malloc($sizeof(Archetype*) * ARCHETYPES_LIST_CHUNK_SIZE);
+			self.chunks[self.chunk_idx] = malloc(Archetype*::size * ARCHETYPES_LIST_CHUNK_SIZE);
 		}
 		/* Reset current inserting index. */
 		self.idx = 0;
 	}
 
 	/* Calculates pointer for writing and set it to new value. */
-	Archetype** ptr = (Archetype**)(self.chunks[self.chunk_idx] + $sizeof(Archetype*) * self.idx);
+	Archetype** ptr = (Archetype**)(self.chunks[self.chunk_idx] + Archetype*::size * self.idx);
 	*ptr = archetype;
 
 	return self.chunk_idx * ARCHETYPES_LIST_CHUNK_SIZE + self.idx++;	/* Increment inserting index. */
@@ -51,7 +51,7 @@ fn Archetype*? Archetypes.pop(&self) {
 	/* Check if the list is empty. */
 	if (self.idx == 0 && self.chunk_idx == 0) return NO_MORE_ELEMENT~;
 	/* Decrement current index and calculates pointer to last item. */
-	Archetype** ptr = (Archetype**)(self.chunks[self.chunk_idx] + $sizeof(Archetype*) * (--self.idx));
+	Archetype** ptr = (Archetype**)(self.chunks[self.chunk_idx] + Archetype*::size * (--self.idx));
 	/* Check if current chunk becomes empty and go to previous one if it exists. */
 	if (self.idx == 0 && self.chunk_idx > 0) {
 		self.chunk_idx--;
@@ -67,8 +67,8 @@ fn Archetype*? Archetypes.pop(&self) {
    @return "Archetype's pointer that took the place of the deleted one."
    @return? OUT_OF_BOUNDS      : "Index is out of bounds."
    @return? NO_SWAPPED_ELEMENT : "It was last element, nothing to swap with." *>
-fn Archetype*? Archetypes.remove(&self, usz idx) {
-	usz len = self.len();
+fn Archetype*? Archetypes.remove(&self, sz idx) {
+	sz len = self.len();
 	/* Checks for correctness of passed index. */
 	if (idx >= len) return OUT_OF_BOUNDS~;
 	/* If the list has only one element. */
@@ -90,19 +90,19 @@ fn Archetype*? Archetypes.remove(&self, usz idx) {
 }
 
 <* Gets the length of the list. *>
-fn usz Archetypes.len(&self) @operator(len) @inline {
+fn sz Archetypes.len(&self) @operator(len) @inline {
 	return self.chunk_idx * ARCHETYPES_LIST_CHUNK_SIZE + self.idx;
 }
 
 <* Gets archetype's pointer.
    @param idx : "Archetype's index in the list."
    @return "Pointer to the archetype." *>
-fn Archetype* Archetypes.get(&self, usz idx) @operator([]) @inline {
+fn Archetype* Archetypes.get(&self, sz idx) @operator([]) @inline {
 	/* Calculates indexes. */
-	usz chunk_idx = idx / ARCHETYPES_LIST_CHUNK_SIZE;
+	sz chunk_idx = idx / ARCHETYPES_LIST_CHUNK_SIZE;
 	idx = idx % ARCHETYPES_LIST_CHUNK_SIZE;
 	/* Calculates pointer. */
-	Archetype** ptr = (Archetype**)(self.chunks[chunk_idx] + $sizeof(Archetype*) * idx);
+	Archetype** ptr = (Archetype**)(self.chunks[chunk_idx] + Archetype*::size * idx);
 
 	return *ptr;
 }
@@ -110,12 +110,12 @@ fn Archetype* Archetypes.get(&self, usz idx) @operator([]) @inline {
 <* Sets archetype's pointer (list value) at specified index.
    @param idx       : "List item index."
    @param archetype : "Pointer to the archetype." *>
-fn void Archetypes.set(&self, usz idx, Archetype* archetype) @operator([]=) @inline {
+fn void Archetypes.set(&self, sz idx, Archetype* archetype) @operator([]=) @inline {
 	/* Calculates indexes. */
-	usz chunk_idx = idx / ARCHETYPES_LIST_CHUNK_SIZE;
+	sz chunk_idx = idx / ARCHETYPES_LIST_CHUNK_SIZE;
 	idx = idx % ARCHETYPES_LIST_CHUNK_SIZE;
 	/* Calculates pointer for writing and set it to new value. */
-	Archetype** ptr = (Archetype**)(self.chunks[chunk_idx] + $sizeof(Archetype*) * idx);
+	Archetype** ptr = (Archetype**)(self.chunks[chunk_idx] + Archetype*::size * idx);
 	*ptr = archetype;
 }
 

@@ -1,4 +1,4 @@
-module moecs;
+module mobee;
 
 <* Systems list, growable collection of pointers to system.
    Capacity equals SYSTEMS_LIST_CHUNK_SIZE * SYSTEMS_LIST_MAX_CHUNKS_COUNT. *>
@@ -7,21 +7,21 @@ struct Systems {
 	char*[SYSTEMS_LIST_MAX_CHUNKS_COUNT] chunks;
 	<* Current inserting index in the last chunk (last inserted index + 1).
 	   If it equals chunk size than new chunk should be allocated. *>
-	usz idx;
+	sz idx;
 	<* Current working (last allocated if list was not cleared yet) chunk index.
 	   When list was being cleared it will be set to 0. *>
-	usz chunk_idx;
+	sz chunk_idx;
 }
 
 <* Initializes list, allocates first chunk. *>
 fn void Systems.init(&self) {
-	self.chunks[0] = malloc($sizeof(System*) * SYSTEMS_LIST_CHUNK_SIZE);
+	self.chunks[0] = malloc(System*::size * SYSTEMS_LIST_CHUNK_SIZE);
 }
 
 <* Adds system to the list.
    @param system : "Pointer to the system."
    @return "Total index of inserted system in the list." *>
-fn usz Systems.push(&self, System* system) {
+fn sz Systems.push(&self, System* system) {
 	/* Check if it is necessary to allocate new (switch to next) chunk (current one is full). */
 	if (self.idx == SYSTEMS_LIST_CHUNK_SIZE) {
 		/* Check if capacity allows to allocate new memory blocks. */
@@ -31,14 +31,14 @@ fn usz Systems.push(&self, System* system) {
 		/* Checks if the block was not already allocated (before list clearing). */
 		if (self.chunks[self.chunk_idx] == null) {
 			/* Allocate chunk memory block and store pointer to it. */
-			self.chunks[self.chunk_idx] = malloc($sizeof(Systems*) * SYSTEMS_LIST_CHUNK_SIZE);
+			self.chunks[self.chunk_idx] = malloc(Systems*::size * SYSTEMS_LIST_CHUNK_SIZE);
 		}
 		/* Reset current inserting index. */
 		self.idx = 0;
 	}
 
 	/* Calculates pointer for writing and set it to new value. */
-	System** ptr = (System**)(self.chunks[self.chunk_idx] + $sizeof(System*) * self.idx);
+	System** ptr = (System**)(self.chunks[self.chunk_idx] + System*::size * self.idx);
 	*ptr = system;
 
 	return self.chunk_idx * SYSTEMS_LIST_CHUNK_SIZE + self.idx++;	/* Increment inserting index. */
@@ -51,7 +51,7 @@ fn System*? Systems.pop(&self) {
 	/* Check if the list is empty. */
 	if (self.idx == 0 && self.chunk_idx == 0) return NO_MORE_ELEMENT~;
 	/* Decrement current index and calculates pointer to last item. */
-	System** ptr = (System**)(self.chunks[self.chunk_idx] + $sizeof(System*) * (--self.idx));
+	System** ptr = (System**)(self.chunks[self.chunk_idx] + System*::size * (--self.idx));
 	/* Check if current chunk becomes empty and go to previous one if it exists. */
 	if (self.idx == 0 && self.chunk_idx > 0) {
 		self.chunk_idx--;
@@ -67,8 +67,8 @@ fn System*? Systems.pop(&self) {
    @return "System's pointer that took the place of the deleted one."
    @return? OUT_OF_BOUNDS      : "Index is out of bounds."
    @return? NO_SWAPPED_ELEMENT : "It was last element, nothing to swap with." *>
-fn System*? Systems.remove(&self, usz idx) @maydiscard {
-	usz len = self.len();
+fn System*? Systems.remove(&self, sz idx) @maydiscard {
+	sz len = self.len();
 	/* Checks for correctness of passed index. */
 	if (idx >= len) return OUT_OF_BOUNDS~;
 	/* If the list has only one element. */
@@ -90,19 +90,19 @@ fn System*? Systems.remove(&self, usz idx) @maydiscard {
 }
 
 <* Gets the length of the list. *>
-fn usz Systems.len(&self) @operator(len) @inline {
+fn sz Systems.len(&self) @operator(len) @inline {
 	return self.chunk_idx * SYSTEMS_LIST_CHUNK_SIZE + self.idx;
 }
 
 <* Gets system's pointer.
    @param idx : "System's index in the list."
    @return "Pointer to the system." *>
-fn System* Systems.get(&self, usz idx) @operator([]) @inline {
+fn System* Systems.get(&self, sz idx) @operator([]) @inline {
 	/* Calculates indexes. */
-	usz chunk_idx = idx / SYSTEMS_LIST_CHUNK_SIZE;
+	sz chunk_idx = idx / SYSTEMS_LIST_CHUNK_SIZE;
 	idx = idx % SYSTEMS_LIST_CHUNK_SIZE;
 	/* Calculates pointer. */
-	System** ptr = (System**)(self.chunks[chunk_idx] + $sizeof(System*) * idx);
+	System** ptr = (System**)(self.chunks[chunk_idx] + System*::size * idx);
 
 	return *ptr;
 }
@@ -110,12 +110,12 @@ fn System* Systems.get(&self, usz idx) @operator([]) @inline {
 <* Sets system's pointer (list value) at specified index.
    @param idx    : "List item index."
    @param system : "Pointer to the system." *>
-fn void Systems.set(&self, usz idx, System* system) @operator([]=) @inline {
+fn void Systems.set(&self, sz idx, System* system) @operator([]=) @inline {
 	/* Calculates indexes. */
-	usz chunk_idx = idx / SYSTEMS_LIST_CHUNK_SIZE;
+	sz chunk_idx = idx / SYSTEMS_LIST_CHUNK_SIZE;
 	idx = idx % SYSTEMS_LIST_CHUNK_SIZE;
 	/* Calculates pointer for writing and set it to new value. */
-	System** ptr = (System**)(self.chunks[chunk_idx] + $sizeof(System*) * idx);
+	System** ptr = (System**)(self.chunks[chunk_idx] + System*::size * idx);
 	*ptr = system;
 }
 

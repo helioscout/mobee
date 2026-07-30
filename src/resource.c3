@@ -1,4 +1,4 @@
-module moecs;
+module mobee;
 
 import std::math;
 import std::sort;
@@ -8,13 +8,13 @@ struct Resource @private {
 	<* Type id of the resource type. *>
 	typeid type;
 	<* Index of the resource. *>
-	usz idx;
+	sz idx;
 	<* Type size for allocations. *>
-	usz size;
+	sz size;
 	<* Type alignment for allocations. *>
-	usz alignment;
+	sz alignment;
 	<* Resource offset (position) in the storage. *>
-	usz offset;
+	sz offset;
 }
 
 struct Resources @private {
@@ -23,9 +23,9 @@ struct Resources @private {
 	<* Instances of concrete resource type. *>
 	Resource[MAX_RESOURCES_COUNT] types;
 	<* Resource types count (last index + 1). *>
-	usz count;
+	sz count;
 	<* Total size in bytes of all resources. *>
-	usz size;
+	sz size;
 	<* Resources storage in the memory. *>
 	char* storage;
 }
@@ -35,10 +35,10 @@ struct Resources @private {
    @param type        : "Resource type."
    @return              "Index of the resource type."
    @return? NOT_FOUND : "Resource type was not found (registered)." *>
-fn usz? resource_index(Resources* resources, typeid type) @private @inline {
+fn sz? resource_index(Resources* resources, typeid type) @private @inline {
 	uptr id = (uptr)type;
 
-	for (usz i = 0; i < resources.count; i++) {
+	for (sz i = 0; i < resources.count; i++) {
 		if (resources.ids[i] == id) return i;
 	}
 
@@ -65,7 +65,7 @@ fn void resources_add(Resources* resources, typeid type, Resource resource) @pri
    @return              "Pointer to resource's type instance."
    @return? NOT_FOUND : "Resource type was not found (registered)." *>
 fn Resource*? resources_get(Resources* resources, typeid type) @private @inline {
-	if (try usz idx = resource_index(resources, type)) {
+	if (try sz idx = resource_index(resources, type)) {
 		return &resources.types[idx];
 	} else {
 		return NOT_FOUND~;
@@ -88,17 +88,17 @@ fn void resources_adjust(Resources* resources) @private {
 	quicksort(resources.ids[:resources.count]);
 
 	foreach (resource : types) {
-		usz idx = resource_index(resources, resource.type)!!;
+		sz idx = resource_index(resources, resource.type)!!;
 		resources.types[idx] = resource;
 		resources.types[idx].idx = idx;
 	}
 
 	resources.types[0].offset = 0;
 
-	usz offset = 0;
-	usz chunk_align = 1;
+	sz offset = 0;
+	sz chunk_align = 1;
 
-	for (usz i = 0; i < resources.count; i++) {
+	for (sz i = 0; i < resources.count; i++) {
 		Resource* r = &resources.types[i];
 		
 		offset = mem::aligned_offset(offset, r.alignment);

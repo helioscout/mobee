@@ -1,11 +1,11 @@
-module moecs;
+module mobee;
 
 <* Archetype for components/tags configuration. *>
 struct Archetype {
 	<* Components marker, each set bit specifies that the component exists in the archetype. *>
-	usz[COMPONENTS_MARKER_SIZE] components;
+	sz[COMPONENTS_MARKER_SIZE] components;
 	<* Tags marker, each set bit specifies that the tag exists in the archetype. *>
-	usz[TAGS_MARKER_SIZE] tags;
+	sz[TAGS_MARKER_SIZE] tags;
 	<* Entities that belongs to the archetype. Each entity clould be included only into one archetype. *>
 	Entities entities;
 }

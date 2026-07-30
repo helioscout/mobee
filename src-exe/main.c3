@@ -1,10 +1,10 @@
-module moecs_test;
+module mobee_test;
 
 import std::io;
 import std::time;
-import moecs;
+import mobee;
 
-alias ecs = module moecs;
+alias ecs = module mobee;
 
 struct Position (Printable) {
 	double x, y;
@@ -59,57 +59,57 @@ typedef VecType = float[<2>];
 typedef Tag1 = int;
 typedef Tag2 = int;
 
-const usz MAX_COUNT = 130;
-const usz BITS_COUNT = usz.sizeof * 8;
-const usz MARKER_SIZE = (MAX_COUNT + BITS_COUNT - 1) / BITS_COUNT;
+const sz MAX_COUNT = 130;
+const sz BITS_COUNT = sz::size * 8;
+const sz MARKER_SIZE = (MAX_COUNT + BITS_COUNT - 1) / BITS_COUNT;
 
-fn usz? Position.to_format(&self, Formatter* f) @dynamic {
+fn sz? Position.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ x: %f, y: %f }", self.x, self.y);
 }
  
-fn usz? Center.to_format(&self, Formatter* f) @dynamic {
+fn sz? Center.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ cx: %d, cy: %d }", self.cx, self.cy);
 }
 
-fn usz? Health.to_format(&self, Formatter* f) @dynamic {
+fn sz? Health.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ hp: %d }", self.hp);
 }
 
-fn usz? Rotation.to_format(&self, Formatter* f) @dynamic {
+fn sz? Rotation.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ angle: %d, rad: %f }", self.angle, self.rad);
 }
 
-fn usz? Mutation.to_format(&self, Formatter* f) @dynamic {
+fn sz? Mutation.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ stage: %d, skin: %f }", self.stage, self.skin);
 }
 
-fn usz? Resource1.to_format(&self, Formatter* f) @dynamic {
+fn sz? Resource1.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ enabled: %s }", self.enabled);
 }
 
-fn usz? Resource2.to_format(&self, Formatter* f) @dynamic {
+fn sz? Resource2.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ enabled: %s, count: %d }", self.enabled, self.count);
 }
 
-fn usz? Resource3.to_format(&self, Formatter* f) @dynamic {
+fn sz? Resource3.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ ptr: %p, data: %s, some: %d }", self.ptr, self.data, self.some);
 }
 
-fn usz? Resource4.to_format(&self, Formatter* f) @dynamic {
+fn sz? Resource4.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ pos: %s, hp: %s }", self.pos, self.hp);
 }
 
-fn usz? Resource5.to_format(&self, Formatter* f) @dynamic {
+fn sz? Resource5.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ arr: %s }", self.arr);
 }
 
 Clock clock @noinit;
 NanoDuration duration @noinit;
 
-fn void marker_print(usz[MARKER_SIZE] marker) {
+fn void marker_print(sz[MARKER_SIZE] marker) {
 	io::printn("--- marker ---");
 	
-	for (usz i = 0; i < marker.len; i++) {
+	for (sz i = 0; i < marker.len; i++) {
 		io::printfn("| word %d: %b", i, marker[i]);
 	}
 
@@ -122,7 +122,7 @@ fn void startup(Entities* entities, World* world) {
 
 fn void system1(Entities* entities, World* world) {
 	bool despawned;
-	usz count;
+	sz count;
 
 	foreach (entity : entities) {
 		if (count < 100) {
@@ -141,7 +141,7 @@ fn void system1(Entities* entities, World* world) {
 }
 
 fn void system2(Entities* entities, World* world) {
-	// usz count;
+	// sz count;
 
 	foreach (entity : entities) {
 		entity.@get_2_mut(Position, Center; Position* pos, Center* center) {
@@ -185,7 +185,7 @@ fn void system2(Entities* entities, World* world) {
 }
 
 fn void system3(Entities* entities, World* world) {
-	// usz count;
+	// sz count;
 
 	foreach (entity : entities) {
 		entity.@get_2_mut(Position, Center; Position* pos, Center* center) {
@@ -267,18 +267,18 @@ fn void main() {
 	// Entities entities;
 	// entities.init();
 
-	// io::printn((uptr)Position.typeid);
-	// io::printn((uptr)Center.typeid);
-	// io::printn((uptr)VecType.typeid);
-	// io::printn((uptr)Tag1.typeid);
-	// io::printn((uptr)Tag2.typeid);
-	// io::printfn("%b", usz.max >> (64 - 62 % 64));
-	// io::printfn("marker: %b", usz.max >> (64 - 3 % 64));
+	// io::printn((uptr)Position::typeid);
+	// io::printn((uptr)Center::typeid);
+	// io::printn((uptr)VecType::typeid);
+	// io::printn((uptr)Tag1::typeid);
+	// io::printn((uptr)Tag2::typeid);
+	// io::printfn("%b", sz::max >> (64 - 62 % 64));
+	// io::printfn("marker: %b", sz::max >> (64 - 3 % 64));
 	// io::printn(3 / 64);
-	io::printfn("Entity size: %s", Entity.sizeof);
-	// io::printn(Tag1.typeid == Tag1.typeid);
+	io::printfn("Entity size: %s", Entity::size);
+	// io::printn(Tag1::typeid == Tag1::typeid);
 
-	// usz[MARKER_SIZE] marker;
+	// sz[MARKER_SIZE] marker;
 
 	// marker_print(marker);
 	// io::printfn("is all unset: %s", ecs::marker_is_all_unset(MAX_COUNT, MARKER_SIZE, &marker));
@@ -292,7 +292,7 @@ fn void main() {
 	// io::printfn("is 129-th bit set: %s", ecs::marker_is_set(MARKER_SIZE, &marker, 128));
 	// io::printfn("is 130-th bit set: %s", ecs::marker_is_set(MARKER_SIZE, &marker, 129));
 
-	// for (usz i = 0; i < 130; i++) ecs::marker_set(MARKER_SIZE, &marker, i);
+	// for (sz i = 0; i < 130; i++) ecs::marker_set(MARKER_SIZE, &marker, i);
 	
 	// marker_print(marker);
 	// io::printfn("is all set: %s", ecs::marker_is_all_set(MAX_COUNT, MARKER_SIZE, &marker));
@@ -301,8 +301,8 @@ fn void main() {
 	// ecs::marker_unset(MARKER_SIZE, &marker, 129);
 	// marker_print(marker);
 
-	// usz[MARKER_SIZE] marker1 = { usz.max, usz.max, usz.max };
-	// usz[MARKER_SIZE] marker2 = ecs::marker_clone(MARKER_SIZE, &marker1);
+	// sz[MARKER_SIZE] marker1 = { sz::max, sz::max, sz::max };
+	// sz[MARKER_SIZE] marker2 = ecs::marker_clone(MARKER_SIZE, &marker1);
 
 	// ecs::marker_unset(MARKER_SIZE, &marker2, 123);
 
@@ -342,7 +342,7 @@ fn void main() {
 	// 	io::printf("%p ", ptr);
 	// }
 
-	for (usz i = 0; i < 100000 + 3; i++) {
+	for (sz i = 0; i < 100000 + 3; i++) {
 		Entity* e = world.spawn(STATIC)
 			.@add(Position, { .x = (double)i + 10, .y = (double)i + 20 })
 			.@add(Center,   { .cx = (int)i + 20, .cy = (int)i + 20 })
@@ -352,14 +352,14 @@ fn void main() {
 			.@add(VecType,  { 10, 20 })
 			.@add(Mutation, { .skin = 11 });
 
-		// usz idx = entities.push(e);
+		// sz idx = entities.push(e);
 
 		// if (i > 99950) {
 		// 	io::printfn("ptr: %p, idx: %d, get: %p", e, idx, entities[idx]);
 		// }
 	}
 
-	// for (usz i = 0; i < 50; i++) {
+	// for (sz i = 0; i < 50; i++) {
 	// 	io::printf("%p, ", entities.pop()!!);
 	// }
 
@@ -506,7 +506,7 @@ fn void main() {
 	io::printfn("-- spawning dynamicss ( %d ) --", 100000 + 3);
 	clock = clock::now();
 	
-	for (usz i = 0; i < 100000 + 3; i++) {
+	for (sz i = 0; i < 100000 + 3; i++) {
 		world.spawn(DYNAMIC)
 			 .@add(Position, { .x = 10, .y = 10 })
 			 .@add(Center,   { .cx = 20, .cy = 20 })
@@ -524,7 +524,7 @@ fn void main() {
 	io::printfn("-- spawning dynamics ( %d ) --", 500000 + 3);
 	clock = clock::now();
 	
-	for (usz i = 0; i < 500000 + 3; i++) {
+	for (sz i = 0; i < 500000 + 3; i++) {
 		Entity* e7 = world.spawn(DYNAMIC);
 
 		e7.add((Position) { .x = 1, .y = 2 })
@@ -547,7 +547,7 @@ fn void main() {
 	io::printfn("-- spawning statics ( %d ) --", 300000 + 3);
 	clock = clock::now();
 	
-	for (usz i = 0; i < 300000 + 3; i++) {
+	for (sz i = 0; i < 300000 + 3; i++) {
 		world.spawn(STATIC)
 			 .@add(Position, { .x = 10, .y = 10 })
 			 .@add(Center,   { .cx = 20, .cy = 20 })
@@ -564,7 +564,7 @@ fn void main() {
 	io::printfn("--- iterating ---");
 	clock = clock::now();
 
-	usz count;
+	sz count;
 	
 	world.@each(; Entity* entity, Lifetime lifetime) {
 		if (try Position* p = entity.get_mut(Position)) {
@@ -658,7 +658,7 @@ fn void main() {
 	}
 
 	io::printn("--- progress 100 times ---");
-	usz step = 0;
+	sz step = 0;
 	clock = clock::now();
 	
 	while (step++ < 100) {
