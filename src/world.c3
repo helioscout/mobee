@@ -13,15 +13,15 @@ struct World {
 	<* Registered resource types. *>
 	Resources resources;
 	<* All mounted systems. *>
-	Systems systems;
+	Systems* systems;
 	<* Systems split by phase for running in the pipeline. *>
 	Schedule schedule;
 	<* Archetypes collection of the world. *>
-	Archetypes archetypes;
+	Archetypes* archetypes;
 	<* Blocks for entities with dynamic lifetime. *>
-	Blocks dynamics;
+	Blocks* dynamics;
 	<* Blocks for entities with static lifetime. *>
-	Blocks statics;
+	Blocks* statics;
 	<* Indicates that the world is running. *>
 	bool running;
 	<* Indicates that START phase has already executed. *>
@@ -59,6 +59,10 @@ macro sz World.size_of(&self, ...) {
 <* Initializes the world.
    @param world : "Pointer to the world." *>
 fn void world_init(World* world) @private {
+	world.systems = mem::new(Systems);
+	world.dynamics = mem::new(Blocks);
+	world.statics = mem::new(Blocks);
+	
 	world.systems.init();
 	world.dynamics.init();
 	world.statics.init();
@@ -69,6 +73,7 @@ fn void world_init(World* world) @private {
 	world.schedule.post_update.init();
 	
 	if (world.approach == ARCHETYPE) {
+		world.archetypes = mem::new(Archetypes);
 		world.archetypes.init();
 		world.deferred.despawning.init();
 		world.deferred.archetyping.init();
@@ -159,7 +164,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
    @return       "Pointer to the world for chain calls." *>
 fn World* World.unmount(&self, String name) {
 	if (try idx = get_system_index(self, name)) {
-		System* system = self.systems[idx];
+		System* system = (*self.systems)[idx];
 		
 		self.schedule.start.remove(idx);
 		self.schedule.pre_update.remove(idx);
@@ -537,8 +542,8 @@ fn Block* get_free_block(World* world, Lifetime lifetime) @local @inline @unused
    @return           "Pointer to blocks collection" *>
 fn Blocks* get_blocks(World* world, Lifetime lifetime) @local @inline {
 	switch (lifetime) {
-		case DYNAMIC: return &world.dynamics;
-		case STATIC:  return &world.statics;
+		case DYNAMIC: return world.dynamics;
+		case STATIC:  return world.statics;
 	}
 
 	return null;
@@ -578,5 +583,9 @@ fn void free_world(World* world) @private {
 	world.deferred.despawning.free();
 	world.deferred.archetyping.free();
 
+	free(world.systems);
+	free(world.archetypes);
+	free(world.dynamics);
+	free(world.statics);
 	free(world.resources.storage);
 }

@@ -258,8 +258,8 @@ fn void main() {
 		 .mount({ .tags = { Tag2 }, .callback = &system1 })
 		 .mount({ .components = { Position, Center }, .callback = &system3 })
 		 .mount({ .components = { Position, Center }, .tags = { Tag1, Tag2 }, .callback = &system3 })
-		 .mount({ .name = "s1", .components = { Position }, .tags = { Tag1 }, .callback = &system2 })
-		 .mount({ .name = "s2", .components = { Center }, .tags = { Tag1 }, .callback = &system2 })
+		 .mount({ .name = "s1", .components = { Position, Center }, .tags = { Tag1 }, .callback = &system2 })
+		 .mount({ .name = "s2", .components = { Position, Center }, .tags = { Tag1 }, .callback = &system2 })
 		 .mount({ .name = "m_sys", .callback = &system4, .phase = MANUAL })
 		 .run();
 	io::printn("--- world is running ---");
@@ -672,7 +672,9 @@ fn void main() {
 	}
 	
 	duration = clock.mark();
-	io::printf("-- ellapsed: %s", duration);
+	io::printfn("-- ellapsed: %s", duration);
+
+	// io::printfn("world size: %s\n", @sizeof(*world));
 
 	ecs::destroy();
 
