@@ -4,15 +4,15 @@
   // Warnings used for all targets.
   "warnings": [ "no-unused" ],
   // Directories where C3 library files may be found.
-  "dependency-search-paths": [ "lib", "src" ],
+  "dependency-search-paths": [ "." ],
   // Libraries to use for all targets.
-  "dependencies": [ ],
+  "dependencies": [ "mobee" ],
   // Authors, optionally with email.
   "authors": [ "@modev <modevs@pm.me>" ],
   // Version using semantic versioning.
-  "version": "0.1.0",
+  "version": "0.0.1",
   // Sources compiled for all targets.
-  "sources": [ "src/**", "src-exe/main.c3" ],
+  "sources": [ "src/**", "mobee.c3l/**" ],
   // Test sources compiled for all targets.
   "test-sources": [ "test/**" ],
   // C sources if the project also compiles C sources
