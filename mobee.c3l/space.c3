@@ -8,7 +8,7 @@ fn sz size() => worlds.len();
 
 <* Initializes the space (ecs). *>
 fn void init() {
-	worlds.init();
+	worlds.init(mem, 0);
 }
 
 <* Free all worlds of the space. *>

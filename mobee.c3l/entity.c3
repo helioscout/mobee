@@ -381,6 +381,7 @@ fn void archetyping(Entity* entity) @private {
 		Archetype* archetype = get_archetype(world, &entity.components, &entity.tags);
 
 		entity.archetype = archetype;
-		entity.arch_idx = archetype.entities.push(entity);
+		entity.arch_idx = archetype.entities.len();
+		archetype.entities.push(entity);
 	}
 }

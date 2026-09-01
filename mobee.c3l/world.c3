@@ -13,15 +13,15 @@ struct World {
 	<* Registered resource types. *>
 	Resources resources;
 	<* All mounted systems. *>
-	Systems* systems;
+	Systems systems;
 	<* Systems split by phase for running in the pipeline. *>
 	Schedule schedule;
 	<* Archetypes collection of the world. *>
-	Archetypes* archetypes;
+	Archetypes archetypes;
 	<* Blocks for entities with dynamic lifetime. *>
-	Blocks* dynamics;
+	Blocks dynamics;
 	<* Blocks for entities with static lifetime. *>
-	Blocks* statics;
+	Blocks statics;
 	<* Indicates that the world is running. *>
 	bool running;
 	<* Indicates that START phase has already executed. *>
@@ -59,24 +59,19 @@ macro sz World.size_of(&self, ...) {
 <* Initializes the world.
    @param world : "Pointer to the world." *>
 fn void world_init(World* world) @private {
-	world.systems = mem::new(Systems);
-	world.dynamics = mem::new(Blocks);
-	world.statics = mem::new(Blocks);
-	
-	world.systems.init();
-	world.dynamics.init();
-	world.statics.init();
+	world.systems.init(mem);
+	world.dynamics.init(mem);
+	world.statics.init(mem);
 
-	world.schedule.start.init();
-	world.schedule.pre_update.init();
-	world.schedule.update.init();
-	world.schedule.post_update.init();
+	world.schedule.start.init(mem);
+	world.schedule.pre_update.init(mem);
+	world.schedule.update.init(mem);
+	world.schedule.post_update.init(mem);
 	
 	if (world.approach == ARCHETYPE) {
-		world.archetypes = mem::new(Archetypes);
-		world.archetypes.init();
-		world.deferred.despawning.init();
-		world.deferred.archetyping.init();
+		world.archetypes.init(mem);
+		world.deferred.despawning.init(mem);
+		world.deferred.archetyping.init(mem);
 	}
 }
 
@@ -145,7 +140,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
 		}
 	}
 
-	if (self.approach == ITERATION) system.entities.init();
+	if (self.approach == ITERATION) system.entities.init(mem);
 
 	switch (definition.phase) {
 		case START: self.schedule.start.push(system);
@@ -164,13 +159,13 @@ fn World* World.mount(&self, SystemDefinition definition) {
    @return       "Pointer to the world for chain calls." *>
 fn World* World.unmount(&self, String name) {
 	if (try idx = get_system_index(self, name)) {
-		System* system = (*self.systems)[idx];
+		System* system = self.systems[idx];
 		
-		self.schedule.start.remove(idx);
-		self.schedule.pre_update.remove(idx);
-		self.schedule.update.remove(idx);
-		self.schedule.post_update.remove(idx);
-		self.systems.remove(idx);
+		self.schedule.start.remove_unordered_at(idx);
+		self.schedule.pre_update.remove_unordered_at(idx);
+		self.schedule.update.remove_unordered_at(idx);
+		self.schedule.post_update.remove_unordered_at(idx);
+		self.systems.remove_unordered_at(idx);
 		
 		free_system(system);
 		free(system);
@@ -471,6 +466,13 @@ fn void World.perform(&self) {
 
 	self.deferred.archetyping.clear();
 
+	/* We need to delete empty archetypes. */
+	foreach (archetype : self.archetypes) {
+		if (archetype.entities.len() == 0) free_archetype(archetype);
+	}
+	
+	self.archetypes.remove_if(fn (archetype) => (*archetype).entities.len() == 0);
+
 	self.performing = false;
 }
 
@@ -515,7 +517,10 @@ fn Archetype* get_archetype(World* world, sz[COMPONENTS_MARKER_SIZE]* components
 fn Block* get_sparse_block(World* world, Lifetime lifetime) @local @inline {
 	Blocks* blocks = get_blocks(world, lifetime);
 
-	foreach (block : blocks) {
+	/* The newest block is normally the only partially filled one. Searching backward
+	   avoids walking every older full block for each spawned entity. */
+	for (sz idx = blocks.len(); idx > 0;) {
+		Block* block = (*blocks)[--idx];
 		if (block_has_free_rows(block)) return block;
 	}
 
@@ -542,8 +547,8 @@ fn Block* get_free_block(World* world, Lifetime lifetime) @local @inline @unused
    @return           "Pointer to blocks collection" *>
 fn Blocks* get_blocks(World* world, Lifetime lifetime) @local @inline {
 	switch (lifetime) {
-		case DYNAMIC: return world.dynamics;
-		case STATIC:  return world.statics;
+		case DYNAMIC: return &world.dynamics;
+		case STATIC:  return &world.statics;
 	}
 
 	return null;
@@ -583,9 +588,5 @@ fn void free_world(World* world) @private {
 	world.deferred.despawning.free();
 	world.deferred.archetyping.free();
 
-	free(world.systems);
-	free(world.archetypes);
-	free(world.dynamics);
-	free(world.statics);
 	free(world.resources.storage);
 }

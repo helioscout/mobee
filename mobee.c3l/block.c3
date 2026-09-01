@@ -10,7 +10,7 @@ struct Block @private {
 	Lifetime lifetime;
 	<* Entities collection (chunk) for the block.
 	   The index of the entity corresponds to the index of its components in each chunk. *>
-	char* entities;
+	Entity[] entities;
 	<* Component chunks collection for the block.
 	   Chunk is represented as a block in memory with sequentially recorded component's values.
 	   The order (offset of each component) is defined in Components collection.
@@ -28,7 +28,7 @@ struct Block @private {
 <* Initializes the block.
    @param block : "Reference to the block." *>
 fn void block_init(Block* block) @private {
-	block.entities = mem::malloc_aligned(Entity::size * block.size, Entity::alignment);
+	block.entities = mem::alloc_array(Entity, block.size);
 	block.chunks = malloc(block.world.components.size * block.size);
 }
 
@@ -71,10 +71,9 @@ fn bool block_is_free(Block* block) @private @inline {
 fn Entity* block_insert(Block* block) @private {
 	sz idx = block_pop_free_index(block);
 
-	Entity* entity = (Entity*)block.entities + idx;
-	*entity = { .block = block, .chunk_idx = idx };
+	block.entities[idx] = { .block = block, .chunk_idx = idx };
 	
-	return entity;
+	return &block.entities[idx];
 }
 
 <* Deletes entity from the block.
@@ -103,7 +102,7 @@ fn bool block_next(Block* block, EntitiesIterator* iter) @private {
 		if (block.lifetime == DYNAMIC && block.deleted.contains(idx)) {
 			idx++;
 		} else {
-			iter.entity = (Entity*)block.entities + idx;
+			iter.entity = &block.entities[idx];
 			iter.idx = idx;
 
 			return true;
@@ -130,6 +129,6 @@ fn sz block_pop_free_index(Block* block) @local @inline {
 <* Free all block resources.
    @param block : "Reference to the block." *>
 fn void free_block(Block* block) @private {
-	mem::free_aligned(block.entities);
+	free(block.entities.ptr);
 	free(block.chunks);
 }
