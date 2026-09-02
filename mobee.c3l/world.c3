@@ -100,27 +100,28 @@ macro World* World.register(&self, Element element, $Type) {
 }
 
 <* Mounts new system to the world.
-   @param definition : "System definition."
+   @param name       : "Name of the system. It must be unique. Used for getting the system from the world." 
+   @param components : "Components list that should match while the system query."
+   @param tags       : "Tags list that should match while the system query."
+   @param phase      : "System running phase, order in the pipeline. By default equals UPDATE."
+   @param lifetime   : "Entities lifetime flag to optimize queries and do not process lifetimes that you want to avoid for current system. Includes all lifetimes (0b00000011) by default. Not used in ARCHETYPE approach."
    @return             "Pointer to the world for chain calls." *>
-fn World* World.mount(&self, SystemDefinition definition) {
-	if (definition.name && self.has_system(definition.name)) abort("System with such name has already been mounted.");
-	if (!definition.name && definition.phase == MANUAL) abort("Systems with MANUAL phase must have a name.");
-	if (definition.callback == null) abort("Callback must be provided.");
-	if (self.running) abort("You can't mount system to already running world.");
+fn World* World.mount(&self, String name = "", typeid[] components = {}, typeid[] tags = {},
+	Phase phase = UPDATE, char lifetime = 0b00000011, SystemCallback callback = null) {
+	if (name && self.has_system(name)) abort(ERR_SYSTEM_ALREADY_MOUNTED);
+	if (!name && phase == MANUAL) abort(ERR_MANUAL_SYSTEM_NAME_NOT_PROVIDED);
+	if (callback == null) abort(ERR_CALLBACK_NOT_PROVIDED);
+	if (!self.running) abort(ERR_WORLD_IS_NOT_RUNNING);
 
-	System* system = mem::new(System);
-	system.name		= definition.name;
-	system.callback = definition.callback;
-	system.state    = ENABLED;
-	system.lifetime = definition.lifetime == 0 ? 0b00000011 : definition.lifetime;
-	system.phase    = definition.phase;
-	system.component_types = @clone_slice(definition.components);
+	System* system = mem::new(System, {
+		.name = name, .callback = callback, .state = ENABLED,
+		.lifetime = lifetime == 0 ? 0b00000011 : lifetime, .phase = phase });
 
-	if (definition.components.len == 0 && definition.tags.len == 0) {
+	if (components.len == 0 && tags.len == 0) {
 		system.state |= ElementState.IS_TASK;
 	} else {
-		if (definition.components.len > 0) {
-			foreach (type : definition.components) {
+		if (components.len > 0) {
+			foreach (type : components) {
 				if (try sz idx = component_index(&self.components, type)) {
 					marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
 				}
@@ -129,8 +130,8 @@ fn World* World.mount(&self, SystemDefinition definition) {
 			system.state |= ElementState.HAS_COMPONENTS;
 		}
 
-		if (definition.tags.len > 0) {
-			foreach (type : definition.tags) {
+		if (tags.len > 0) {
+			foreach (type : tags) {
 				if (try sz idx = tag_index(&self.tags, type)) {
 					marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
 				}
@@ -142,7 +143,7 @@ fn World* World.mount(&self, SystemDefinition definition) {
 
 	if (self.approach == ITERATION) system.entities.init(mem);
 
-	switch (definition.phase) {
+	switch (phase) {
 		case START: self.schedule.start.push(system);
 		case PRE_UPDATE: self.schedule.pre_update.push(system);
 		case UPDATE: self.schedule.update.push(system);
@@ -178,26 +179,17 @@ fn World* World.unmount(&self, String name) {
    World must has at least one registered component, but can has no tags, resources.
    @return "Pointer to the world for chain calls." *>
 fn World* World.run(&self) {
-	if (self.components.count == 0) abort("The world has no registered components.");
+	if (self.components.count == 0) abort(ERR_WORLD_HAS_NO_COMPONENTS);
 	if (self.running) return self;
 
 	components_adjust(&self.components);
 
-	/* We must re-set all component markers for systems, because order of components
-	   has been changed during adjustment and as a result components indexes changed. */
-	foreach (system : self.systems) {
-		if (system.component_types.len > 0) {
-			marker_clear(COMPONENTS_MARKER_SIZE, &system.components);
-
-			foreach (type : system.component_types) {
-				sz idx = component_index(&self.components, type)!!;
-				marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
-			}
-		}
-	}
+	if (self.components.size > STACK_BUFFER_SIZE) abort(ERR_COMPONENTS_SIZE_INVALID);
 
 	if (self.resources.count > 0) {
 		resources_adjust(&self.resources);
+
+		if (self.resources.size > STACK_BUFFER_SIZE) abort(ERR_RESOURCES_SIZE_INVALID);
 
 		self.resources.storage = malloc(self.resources.size);
 	}

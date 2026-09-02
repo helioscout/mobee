@@ -25,27 +25,6 @@ struct System {
 	<* Callback function that will be invoked each step of the world progress.
 	   Disable system to pause invokation. *>
 	SystemCallback callback;
-	<* Components types list that should match while the system query.
-	   Cloned from definition for further marker set after sorting components. *>
-	typeid[] component_types;
-}
-
-<* System definition, for mounting. *>
-struct SystemDefinition {
-	<* Name of the system. It must be unique. Used for getting the system from the world. *>
-	String name;
-	<* Components list that should match while the system query. *>
-	typeid[] components;
-	<* Tags list that should match while the system query. *>
-	typeid[] tags;
-	<* System running phase, order in the pipeline. By default equals UPDATE. *>
-	Phase phase;
-	<* Entities lifetime flag to optimize queries and do not process lifetimes
-	   that you want to avoid for current system. Includes all lifetimes (0b00000011) by default.
-	   Not used in ARCHETYPE approach. *>
-	char lifetime;
-	<* Callback function that will be invoked each step of the world progress. *>
-	SystemCallback callback;
 }
 
 <* Checks if the system is enabled.
@@ -83,5 +62,4 @@ fn bool System.eq(&self, System other) @operator(==) @inline => self.name == oth
    @param system : "Pointer to the system." *>
 fn void free_system(System* system) @private @inline {
 	system.entities.free();
-	free(system.component_types);
 }
