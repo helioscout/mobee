@@ -10,6 +10,9 @@ import std::collections::fixedlist;
 const sz DYNAMIC_CHUNK_SIZE @private = 500;
 <* Static lifetime chunk size. *>
 const sz STATIC_CHUNK_SIZE @private  = 300;
+<* Bytes buffer size used for reading/writing components.
+   Must be not less that total size of all registered components. *>
+const sz STACK_BUFFER_SIZE = 16 * 1024;
 
 <* Maximum components count available for adding to entity. *>
 const sz MAX_COMPONENTS_COUNT = 127;
@@ -167,3 +170,11 @@ struct EntitiesIterator @private {
 faultdef OUT_OF_BOUNDS;
 <* There is no element to swap with removed one in the collection. *>
 faultdef NO_SWAPPED_ELEMENT;
+
+const String ERR_SYSTEM_ALREADY_MOUNTED @private = "System with such name has already been mounted.";
+const String ERR_MANUAL_SYSTEM_NAME_NOT_PROVIDED @private = "Systems with MANUAL phase must have a name.";
+const String ERR_CALLBACK_NOT_PROVIDED @private = "Callback must be provided.";
+const String ERR_WORLD_IS_NOT_RUNNING @private = "Run the world first.";
+const String ERR_WORLD_HAS_NO_COMPONENTS @private = "The world has no registered components.";
+const String ERR_COMPONENTS_SIZE_INVALID @private = "Total components size must be less than STACK_BUFFER_SIZE.";
+const String ERR_RESOURCES_SIZE_INVALID @private = "Total resources size must be less than STACK_BUFFER_SIZE.";

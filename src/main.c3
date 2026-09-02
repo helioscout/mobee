@@ -144,15 +144,15 @@ fn void system2(Entities* entities, World* world) {
 	// sz count;
 
 	foreach (entity : entities) {
-		// entity.@get_2_mut(Position, Center; Position* pos, Center* center) {
-		// 	pos.x += 1;
-		// 	center.cx += 1;
-		// };
-
-		entity.@get_2(Position, Center; pos, center) {
+		entity.@get_2_components_mut(Position, Center; Position* pos, Center* center) {
 			pos.x += 1;
 			center.cx += 1;
 		};
+
+		// entity.@get_2_components(Position, Center; pos, center) {
+		// 	pos.x += 1;
+		// 	center.cx += 1;
+		// };
 
 		// entity.@get_mut(Position; Position* pos) {
 		// 	pos.x += 1;
@@ -188,15 +188,15 @@ fn void system3(Entities* entities, World* world) {
 	// sz count;
 
 	foreach (entity : entities) {
-		// entity.@get_2_mut(Position, Center; Position* pos, Center* center) {
-		// 	pos.x += 1;
-		// 	center.cx += 1;
-		// };
-
-		entity.@get_2(Position, Center; pos, center) {
+		entity.@get_2_components_mut(Position, Center; Position* pos, Center* center) {
 			pos.x += 1;
 			center.cx += 1;
 		};
+
+		// entity.@get_2_components(Position, Center; pos, center) {
+		// 	pos.x += 1;
+		// 	center.cx += 1;
+		// };
 
 		// entity.@get_mut(Position; Position* pos) {
 		// 	pos.x += 1;
@@ -253,17 +253,18 @@ fn void main() {
 		 .register(RESOURCE, Resource5)
 		 .register(TAG, Tag1)
 		 .register(TAG, Tag2)
-		 .mount({ .callback = &startup, .phase = START })
-		 .mount({ .tags = { Tag1 }, .callback = &system1 })
-		 .mount({ .tags = { Tag2 }, .callback = &system1 })
-		 .mount({ .components = { Position, Center }, .callback = &system3 })
-		 .mount({ .components = { Position, Center }, .tags = { Tag1, Tag2 }, .callback = &system3 })
-		 .mount({ .name = "s1", .components = { Position, Center }, .tags = { Tag1 }, .callback = &system2 })
-		 .mount({ .name = "s2", .components = { Position, Center }, .tags = { Tag1 }, .callback = &system2 })
-		 .mount({ .name = "m_sys", .callback = &system4, .phase = MANUAL })
 		 .run();
 	io::printn("--- world is running ---");
 
+	 world.mount(phase: START, callback: &startup)
+		  .mount(tags: { Tag1 }, callback: &system1)
+		  .mount(tags: { Tag2 }, callback: &system1)
+		  .mount(components: { Position, Center }, callback: &system3)
+		  .mount(components: { Position, Center }, tags: { Tag1, Tag2 }, callback: &system3)
+		  .mount(name: "s1", components: { Position, Center }, tags: { Tag1 }, callback: &system2)
+		  .mount(name: "s2", components: { Position, Center }, tags: { Tag1 }, callback: &system2)
+		  .mount(name: "m_sys", phase: MANUAL, callback: &system4);
+		
 	// Entities entities;
 	// entities.init();
 
@@ -312,6 +313,18 @@ fn void main() {
 	// marker_print(marker1);
 	// marker_print(marker2);
 
+	Entity* e1 = world.spawn()
+		.@add_2_components(
+			Position, { .x = 7, .y = 13 },
+			Center,   { .cx = 33 });
+
+	if (try pos = e1.get(Position)) {
+		io::printfn("pos: %s", pos);
+	}
+	if (try c = e1.get(Center)) {
+		io::printfn("center: %s", c);
+	}
+
 	world.@set(Resource1, { .enabled = true })
 		 .@set(Resource2, { .count = 10 })
 		 .@set(Resource3, { .some = 200 });
@@ -348,9 +361,13 @@ fn void main() {
 			.@add(Center,   { .cx = (int)i + 20, .cy = (int)i + 20 })
 			.@add(Health,   { .hp = 30 })
 			.@add(Rotation, { .angle = 90 })
-			.@add(Velocity, { 50 })
-			.@add(VecType,  { 10, 20 })
-			.@add(Mutation, { .skin = 11 });
+			.@add(Velocity, { 50 });
+
+			e.@add_2_components(
+				VecType,  { 10, 20 },
+				Mutation, { .skin = 11 });
+			// .@add(VecType,  { 10, 20 })
+			// .@add(Mutation, { .skin = 11 });
 
 		// sz idx = entities.push(e);
 
