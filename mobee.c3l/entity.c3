@@ -22,55 +22,31 @@ struct Entity {
 
 <* Adds component to the entity by type and initializer.
    If entity already has a component it will be replaced by new one.
-   @param $Type : "Component type."
-   @param #init : "Component initialization block."
+   @param $Type    : "Component type."
+   @param #init    : "Component initialization block."
    @param $perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
-   @return "Pointer to the entity." *>
-macro Entity* Entity.@add(&self, $Type, #init, bool $perform = true) {
-	if (try sz idx = component_index(&self.block.world.components, $Type::typeid)) {
-		self.@set($Type, #init);									/* Storing value in the chunk. */
-		marker_set(COMPONENTS_MARKER_SIZE, &self.components, idx);	/* Setting marker bit.		   */
+   @return           "Pointer to the entity." *>
+macro Entity* Entity.add_component(&self, $Type, #init, bool $perform = true) @safemacro {
+	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
+		$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+		*ptr = #init;												/* Storing value in the chunk. */
+		
+		marker_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx);	/* Setting marker bit.		   */
+
 		if ($perform) archetyping(self);
 	}
 
 	return self;
 }
 
-<* Sets component value in the entity by its type and initializer.
+<* Sets previously added component value in the entity by its type and initializer.
    @param $Type : "Component type."
    @param #init : "Component initialization block."
-   @return "Pointer to the entity." *>
-macro Entity* Entity.@set(&self, $Type, #init) {
+   @return        "Pointer to the entity." *>
+macro Entity* Entity.set_component(&self, $Type, #init) @safemacro {
 	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
 		$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
 		*ptr = #init;
-	}
-	
-	return self;
-}
-
-<* Add component to the entity by its instance. If entity already has a component it will be replaced by new one.
-   @param $component : "Component instance."
-   @param $perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
-   @return "Pointer to the entity." *>
-macro Entity* Entity.add(&self, $component, bool $perform = true) {
-	if (try sz idx = component_index(&self.block.world.components, $Typeof($component)::typeid)) {
-		self.set($component);										/* Storing value in the chunk. */
-		marker_set(COMPONENTS_MARKER_SIZE, &self.components, idx);	/* Setting marker bit.		   */
-		if ($perform) archetyping(self);
-	}
-
-	return self;
-}
-
-<* Sets component in the entity by its instance.
-   @param $component : "Component instance."
-   @return "Pointer to the entity." *>
-macro Entity* Entity.set(&self, $component) {
-	if (try Component* c = components_get(&self.block.world.components, $Typeof($component)::typeid)) {
-		$Typeof($component)* ptr = ($Typeof($component)*)(self.block.chunks
-			+ self.block.world.components.size * self.chunk_idx + c.offset);
-		*ptr = $component;
 	}
 	
 	return self;

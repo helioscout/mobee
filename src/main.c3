@@ -126,7 +126,7 @@ fn void system1(Entities* entities, World* world) {
 
 	foreach (entity : entities) {
 		if (count < 100) {
-			entity.add((Position) { .x = 111, .y = 222 });
+			entity.add_component(Position, { .x = 111, .y = 222 });
 		}
 
 		if (!despawned && !entity.is_static()) {
@@ -313,17 +313,63 @@ fn void main() {
 	// marker_print(marker1);
 	// marker_print(marker2);
 
-	Entity* e1 = world.spawn()
-		.@add_2_components(
-			Position, { .x = 7, .y = 13 },
-			Center,   { .cx = 33 });
+	io::printn("--- adding components ---");
 
-	if (try pos = e1.get(Position)) {
-		io::printfn("pos: %s", pos);
-	}
-	if (try c = e1.get(Center)) {
-		io::printfn("center: %s", c);
-	}
+	Entity* e1 = world.spawn()
+		.add(Position, { .x = 7, .y = 13 },
+			 Center,   { .cx = 33 },
+			 Health,   { .hp = 99 },
+			 Velocity, { 133 },
+			 Rotation, { .angle = 12 },
+			 VecType,  { 20, 40 },
+			 Mutation, { .skin = 22 });
+
+	if (try pos = e1.get(Position)) { io::printfn("e1 pos: %s", pos); }
+	if (try c = e1.get(Center))     { io::printfn("e1 center: %s", c); }
+	if (try h = e1.get(Health))     { io::printfn("e1 health: %s", h); }
+	if (try v = e1.get(Velocity))   { io::printfn("e1 velocity: %s", v); }
+	if (try r = e1.get(Rotation))   { io::printfn("e1 rotation: %s", r); }
+	if (try vec = e1.get(VecType))  { io::printfn("e1 vec: %s", vec); }
+	if (try m = e1.get(Mutation))   { io::printfn("e1 mutation: %s", m); }
+
+	Entity* e2 = world.spawn()
+		.add_component(Position, { .x = 8, .y = 14 })
+		.add_component(Center,   { .cx = 34 })
+		.add_component(Health,   { .hp = 10 })
+		.add_component(Velocity, { 134 });
+		
+	if (try pos = e2.get(Position)) { io::printfn("e2 pos: %s", pos); }
+	if (try c = e2.get(Center))     { io::printfn("e2 center: %s", c); }
+	if (try h = e2.get(Health))     { io::printfn("e2 health: %s", h); }
+	if (try v = e2.get(Velocity))   { io::printfn("e2 velocity: %s", v); }
+
+	io::printn("--- setting components ---");
+
+	e1.set(Position, { .x = 11, .y = 12 },
+		   Center,   { .cx = 11, .cy = 22  },
+		   Health,   { .hp = 7 },
+		   Velocity, { 99 },
+		   Rotation, { .angle = 91 },
+		   VecType,  { 40, 60 },
+		   Mutation, { .skin = 28 });
+
+	if (try pos = e1.get(Position)) { io::printfn("e1 pos: %s", pos); }
+	if (try c = e1.get(Center))     { io::printfn("e1 center: %s", c); }
+	if (try h = e1.get(Health))     { io::printfn("e1 health: %s", h); }
+	if (try v = e1.get(Velocity))   { io::printfn("e1 velocity: %s", v); }
+	if (try r = e1.get(Rotation))   { io::printfn("e1 rotation: %s", r); }
+	if (try vec = e1.get(VecType))  { io::printfn("e1 vec: %s", vec); }
+	if (try m = e1.get(Mutation))   { io::printfn("e1 mutation: %s", m); }
+
+	e2.set_component(Position, { .x = 81, .y = 18 })
+	  .set_component(Center,   { .cx = 65 })
+	  .set_component(Health,   { .hp = 67 })
+	  .set_component(Velocity, { 765 });
+		
+	if (try pos = e2.get(Position)) { io::printfn("e2 pos: %s", pos); }
+	if (try c = e2.get(Center))     { io::printfn("e2 center: %s", c); }
+	if (try h = e2.get(Health))     { io::printfn("e2 health: %s", h); }
+	if (try v = e2.get(Velocity))   { io::printfn("e2 velocity: %s", v); }
 
 	world.@set(Resource1, { .enabled = true })
 		 .@set(Resource2, { .count = 10 })
@@ -357,17 +403,13 @@ fn void main() {
 
 	for (sz i = 0; i < 100000 + 3; i++) {
 		Entity* e = world.spawn(STATIC)
-			.@add(Position, { .x = (double)i + 10, .y = (double)i + 20 })
-			.@add(Center,   { .cx = (int)i + 20, .cy = (int)i + 20 })
-			.@add(Health,   { .hp = 30 })
-			.@add(Rotation, { .angle = 90 })
-			.@add(Velocity, { 50 });
-
-			e.@add_2_components(
-				VecType,  { 10, 20 },
-				Mutation, { .skin = 11 });
-			// .@add(VecType,  { 10, 20 })
-			// .@add(Mutation, { .skin = 11 });
+			.add(Position, { .x = (double)i + 10, .y = (double)i + 20 },
+				 Center,   { .cx = (int)i + 20, .cy = (int)i + 20 },
+				 Health,   { .hp = 30 },
+				 Rotation, { .angle = 90 },
+				 Velocity, { 50 },
+				 VecType,  { 10, 20 },
+				 Mutation, { .skin = 11 });
 
 		// sz idx = entities.push(e);
 
@@ -406,21 +448,21 @@ fn void main() {
 	// 	.add((Center){ .cx = 1, .cy = 1 });
 		
 	Entity* e = world.spawn(DYNAMIC)
-		.@add(Position, { .x = 1, .y = 1 })
-		.@add(Center,   { .cx = 1, .cy = 1 })
-		.@add(Health,   { .hp = 30 })
-		.@add(Rotation, { .angle = 90 })
-		.@add(Velocity, { 50 })
-		.@add(VecType,  { 10, 20 })
-		.@add(Mutation, { .skin = 11 });
+		.add(Position, { .x = 1, .y = 1 },
+			 Center,   { .cx = 1, .cy = 1 },
+			 Health,   { .hp = 30 },
+			 Rotation, { .angle = 90 },
+			 Velocity, { 50 },
+			 VecType,  { 10, 20 },
+			 Mutation, { .skin = 11 });
 	
 	Entity* ed = world.spawn(DYNAMIC)
-		.@add(Position, { .x = 2, .y = 2 })
-		.@add(Center, { .cx = 2, .cy = 2 });
+		.add(Position, { .x = 2, .y = 2 },
+			 Center,   { .cx = 2, .cy = 2 });
 		
 	Entity* es = world.spawn(STATIC)
-		.@add(Position, { .x = 3, .y = 3 })
-		.@add(Center, { .cx = 3, .cy = 3 });
+		.add(Position, { .x = 3, .y = 3 },
+			 Center,   { .cx = 3, .cy = 3 });
 		
 	world.spawn(DYNAMIC);
 	world.spawn(DYNAMIC);
@@ -525,13 +567,13 @@ fn void main() {
 	
 	for (sz i = 0; i < 100000 + 3; i++) {
 		world.spawn(DYNAMIC)
-			 .@add(Position, { .x = 10, .y = 10 })
-			 .@add(Center,   { .cx = 20, .cy = 20 })
-			 .@add(Health,   { .hp = 30 })
-			 .@add(Rotation, { .angle = 90 })
-			 .@add(Velocity, { 50 })
-			 .@add(VecType,  { 10, 20 })
-			 .@add(Mutation, { .skin = 11 })
+			 .add(Position, { .x = 10, .y = 10 },
+			 	  Center,   { .cx = 20, .cy = 20 },
+			 	  Health,   { .hp = 30 },
+			 	  Rotation, { .angle = 90 },
+			 	  Velocity, { 50 },
+			 	  VecType,  { 10, 20 },
+			 	  Mutation, { .skin = 11 })
 			 .tag(Tag2);
 	}
 
@@ -544,16 +586,16 @@ fn void main() {
 	for (sz i = 0; i < 500000 + 3; i++) {
 		Entity* e7 = world.spawn(DYNAMIC);
 
-		e7.add((Position) { .x = 1, .y = 2 })
-		  .add((Health)   { .hp = 30 })
-		  .add((Rotation) { .angle = 90 })
-		  .add((Velocity) { 50 });
+		e7.add(Position, { .x = 1, .y = 2 },
+		  	   Health,   { .hp = 30 },
+		  	   Rotation, { .angle = 90 },
+		  	   Velocity, { 50 });
 		  // .add((Center)   { .cx = 1, .cy = 2 });
 
 		e7.tag(Tag1);
 
 		if (i >= 100 && i < 105) {
-			e7.add((Center) { .cx = 1, .cy = 2 });
+			e7.add_component(Center, { .cx = 1, .cy = 2 });
 			e7.tag(Tag2);
 		}
 	}
@@ -566,13 +608,13 @@ fn void main() {
 	
 	for (sz i = 0; i < 300000 + 3; i++) {
 		world.spawn(STATIC)
-			 .@add(Position, { .x = 10, .y = 10 })
-			 .@add(Center,   { .cx = 20, .cy = 20 })
-			 .@add(Health,   { .hp = 30 })
-			 .@add(Rotation, { .angle = 90 })
-			 .@add(Velocity, { 50 })
-			 .@add(VecType,  { 10, 20 })
-			 .@add(Mutation, { .skin = 11 });
+			 .add(Position, { .x = 10, .y = 10 },
+			 	  Center,   { .cx = 20, .cy = 20 },
+			 	  Health,   { .hp = 30 },
+			 	  Rotation, { .angle = 90 },
+			 	  Velocity, { 50 },
+			 	  VecType,  { 10, 20 },
+			 	  Mutation, { .skin = 11 });
 	}
 
 	duration = clock.mark();

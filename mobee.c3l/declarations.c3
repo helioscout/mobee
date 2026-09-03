@@ -178,3 +178,4 @@ const String ERR_WORLD_IS_NOT_RUNNING @private = "Run the world first.";
 const String ERR_WORLD_HAS_NO_COMPONENTS @private = "The world has no registered components.";
 const String ERR_COMPONENTS_SIZE_INVALID @private = "Total components size must be less than STACK_BUFFER_SIZE.";
 const String ERR_RESOURCES_SIZE_INVALID @private = "Total resources size must be less than STACK_BUFFER_SIZE.";
+const String ERR_WRONG_ARGS_COUNT @private = "Wrong number of arguments.";
