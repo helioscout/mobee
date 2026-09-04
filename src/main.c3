@@ -103,6 +103,7 @@ fn sz? Resource5.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ arr: %s }", self.arr);
 }
 
+sz ecount @noinit;
 Clock clock @noinit;
 NanoDuration duration @noinit;
 
@@ -126,7 +127,7 @@ fn void system1(Entities* entities, World* world) {
 
 	foreach (entity : entities) {
 		if (count < 100) {
-			entity.add_component(Position, { .x = 111, .y = 222 });
+			entity.add(Position, { .x = 111, .y = 222 });
 		}
 
 		if (!despawned && !entity.is_static()) {
@@ -144,7 +145,10 @@ fn void system2(Entities* entities, World* world) {
 	// sz count;
 
 	foreach (entity : entities) {
-		entity.@get_2_components_mut(Position, Center; Position* pos, Center* center) {
+		// ecount++;
+		
+		entity.get_mut_6(Position, Center, VecType, Health, Velocity, Rotation;
+			Position* pos, Center* center, VecType* vec, Health* health, Velocity* vel, Rotation* rot) {
 			pos.x += 1;
 			center.cx += 1;
 		};
@@ -188,7 +192,10 @@ fn void system3(Entities* entities, World* world) {
 	// sz count;
 
 	foreach (entity : entities) {
-		entity.@get_2_components_mut(Position, Center; Position* pos, Center* center) {
+		// ecount++;
+
+		entity.get_mut_6(Position, Center, VecType, Health, Velocity, Rotation;
+			Position* pos, Center* center, VecType* vec, Health* health, Velocity* vel, Rotation* rot) {
 			pos.x += 1;
 			center.cx += 1;
 		};
@@ -262,7 +269,7 @@ fn void main() {
 		  .mount(components: { Position, Center }, callback: &system3)
 		  .mount(components: { Position, Center }, tags: { Tag1, Tag2 }, callback: &system3)
 		  .mount(name: "s1", components: { Position, Center }, tags: { Tag1 }, callback: &system2)
-		  .mount(name: "s2", components: { Position, Center }, tags: { Tag1 }, callback: &system2)
+		  .mount(name: "s2", components: { Position, Center }, tags: { Tag2 }, callback: &system2)
 		  .mount(name: "m_sys", phase: MANUAL, callback: &system4);
 		
 	// Entities entities;
@@ -323,7 +330,7 @@ fn void main() {
 			 Rotation, { .angle = 12 },
 			 VecType,  { 20, 40 },
 			 Mutation, { .skin = 22 });
-
+	
 	if (try pos = e1.get(Position)) { io::printfn("e1 pos: %s", pos); }
 	if (try c = e1.get(Center))     { io::printfn("e1 center: %s", c); }
 	if (try h = e1.get(Health))     { io::printfn("e1 health: %s", h); }
@@ -332,26 +339,38 @@ fn void main() {
 	if (try vec = e1.get(VecType))  { io::printfn("e1 vec: %s", vec); }
 	if (try m = e1.get(Mutation))   { io::printfn("e1 mutation: %s", m); }
 
-	Entity* e2 = world.spawn()
-		.add_component(Position, { .x = 8, .y = 14 })
-		.add_component(Center,   { .cx = 34 })
-		.add_component(Health,   { .hp = 10 })
-		.add_component(Velocity, { 134 });
-		
-	if (try pos = e2.get(Position)) { io::printfn("e2 pos: %s", pos); }
-	if (try c = e2.get(Center))     { io::printfn("e2 center: %s", c); }
-	if (try h = e2.get(Health))     { io::printfn("e2 health: %s", h); }
-	if (try v = e2.get(Velocity))   { io::printfn("e2 velocity: %s", v); }
+	io::printn("--- mutating components ---");
+
+	e1.get_mut_7(Position, Center, Health, Velocity, Rotation, VecType, Mutation;
+		Position* pos, Center* c, Health* h, Velocity* v, Rotation* r, VecType* vec, Mutation* m) {
+		pos.x += 1;
+		pos.y += 1;
+		c.cx -= 1;
+		c.cy += 1;
+		h.hp += 1;
+		v.[0] += 1;
+		r.angle += 1;
+		vec.[0] += 1;
+		m.skin += 1;
+	};
+
+	if (try pos = e1.get(Position)) { io::printfn("e1 pos: %s", pos); }
+	if (try c = e1.get(Center))     { io::printfn("e1 center: %s", c); }
+	if (try h = e1.get(Health))     { io::printfn("e1 health: %s", h); }
+	if (try v = e1.get(Velocity))   { io::printfn("e1 velocity: %s", v); }
+	if (try r = e1.get(Rotation))   { io::printfn("e1 rotation: %s", r); }
+	if (try vec = e1.get(VecType))  { io::printfn("e1 vec: %s", vec); }
+	if (try m = e1.get(Mutation))   { io::printfn("e1 mutation: %s", m); }
 
 	io::printn("--- setting components ---");
 
-	e1.set(Position, { .x = 11, .y = 12 },
-		   Center,   { .cx = 11, .cy = 22  },
-		   Health,   { .hp = 7 },
-		   Velocity, { 99 },
-		   Rotation, { .angle = 91 },
-		   VecType,  { 40, 60 },
-		   Mutation, { .skin = 28 });
+	e1.set(Position, { .x = 11, .y = 12 });//,
+		   // Center,   { .cx = 11, .cy = 22  },
+		   // Health,   { .hp = 7 },
+		   // Velocity, { 99 },
+		   // Rotation, { .angle = 91 },
+		   // VecType,  { 40, 60 },
+		   // Mutation, { .skin = 28 });
 
 	if (try pos = e1.get(Position)) { io::printfn("e1 pos: %s", pos); }
 	if (try c = e1.get(Center))     { io::printfn("e1 center: %s", c); }
@@ -361,38 +380,25 @@ fn void main() {
 	if (try vec = e1.get(VecType))  { io::printfn("e1 vec: %s", vec); }
 	if (try m = e1.get(Mutation))   { io::printfn("e1 mutation: %s", m); }
 
-	e2.set_component(Position, { .x = 81, .y = 18 })
-	  .set_component(Center,   { .cx = 65 })
-	  .set_component(Health,   { .hp = 67 })
-	  .set_component(Velocity, { 765 });
-		
-	if (try pos = e2.get(Position)) { io::printfn("e2 pos: %s", pos); }
-	if (try c = e2.get(Center))     { io::printfn("e2 center: %s", c); }
-	if (try h = e2.get(Health))     { io::printfn("e2 health: %s", h); }
-	if (try v = e2.get(Velocity))   { io::printfn("e2 velocity: %s", v); }
+	io::printn("--- setting resources ---");
 
-	world.@set(Resource1, { .enabled = true })
-		 .@set(Resource2, { .count = 10 })
-		 .@set(Resource3, { .some = 200 });
+	world.set(Resource1, { .enabled = true },
+			  Resource2, { .count = 10 },
+			  Resource3, { .some = 200 },
+			  Resource4, { .pos = { .x = 2, .y = 3 }},
+			  Resource5, { .arr = { 3, 7, 1, 2, 3, 4, 5, 6, 7, 8 }});
 
-	if (try Resource1* r1 = world.get(Resource1)) {
-		io::printn(r1);
-	}
+	if (try Resource1* r1 = world.get(Resource1)) { io::printfn("r1: %s", r1); }
+	if (try Resource2* r2 = world.get(Resource2)) { io::printfn("r2: %s", r2); }
+	if (try Resource3* r3 = world.get(Resource3)) { io::printfn("r3: %s", r3); }
+	if (try Resource4* r4 = world.get(Resource4)) { io::printfn("r4: %s", r4); }
+	if (try Resource5* r5 = world.get(Resource5)) { io::printfn("r5: %s", r5); }
 
-	if (try Resource3* r3 = world.get(Resource3)) {
-		io::printn(r3);
-	}
+	world.set(Resource1, { .enabled = false })
+		 .set(Resource3, { .some = 900 });
 
-	world.@set(Resource1, { .enabled = false })
-		 .@set(Resource3, { .some = 900 });
-
-	if (try Resource1* r1 = world.get(Resource1)) {
-		io::printn(r1);
-	}
-
-	if (try Resource3* r3 = world.get(Resource3)) {
-		io::printn(r3);
-	}
+	if (try Resource1* r1 = world.get(Resource1)) { io::printfn("r1: %s", r1); }
+	if (try Resource3* r3 = world.get(Resource3)) { io::printfn("r3: %s", r3); }
 
 	io::printfn("-- spawning statics ( %d ) --", 100000 + 3);
 	clock = clock::now();
@@ -594,8 +600,8 @@ fn void main() {
 
 		e7.tag(Tag1);
 
-		if (i >= 100 && i < 105) {
-			e7.add_component(Center, { .cx = 1, .cy = 2 });
+		if (i >= 100 && i < 100100) {
+			e7.add(Center, { .cx = 1, .cy = 2 });
 			e7.tag(Tag2);
 		}
 	}
@@ -644,7 +650,7 @@ fn void main() {
 		io::printn(r);
 	}
 
-	world.@set(Resource1, { .enabled = false });
+	world.set(Resource1, { .enabled = false });
 	if (try Resource1* r = world.get(Resource1)) {
 		io::printn(r);
 	}
@@ -654,7 +660,7 @@ fn void main() {
 		io::printn(r);
 	}
 
-	world.set((Resource2) { .enabled = true, .count = 7 });
+	world.set(Resource2, { .enabled = true, .count = 7 });
 	if (try Resource2* r = world.get(Resource2)) {
 		io::printn(r);
 	}
@@ -721,6 +727,7 @@ fn void main() {
 	clock = clock::now();
 	
 	while (step++ < 100) {
+		// ecount = 0;
 		// if (step == 50) {
 		// 	world.unmount("s1");
 		// 	world.unmount("s2");
@@ -728,6 +735,7 @@ fn void main() {
 		
 		world.progress();
 		// io::printfn("step");
+		// io::printfn("step entites count: %d", ecount);
 	}
 	
 	duration = clock.mark();

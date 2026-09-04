@@ -22,49 +22,36 @@ struct Entity {
 
 <* Adds component to the entity by type and initializer.
    If entity already has a component it will be replaced by new one.
+   @param entity   : "Pointer to the entity."
    @param $Type    : "Component type."
    @param #init    : "Component initialization block."
    @param $perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
    @return           "Pointer to the entity." *>
-macro Entity* Entity.add_component(&self, $Type, #init, bool $perform = true) @safemacro {
-	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
-		$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+macro Entity* add_component(Entity* entity, $Type, #init, bool $perform = true) @private @safemacro {
+	if (try Component* c = components_get(&entity.block.world.components, $Type::typeid)) {
+		$Type* ptr = ($Type*)(entity.block.chunks + entity.block.world.components.size * entity.chunk_idx + c.offset);
 		*ptr = #init;												/* Storing value in the chunk. */
 		
-		marker_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx);	/* Setting marker bit.		   */
+		marker_set(COMPONENTS_MARKER_SIZE, &entity.components, c.idx);	/* Setting marker bit.		   */
 
-		if ($perform) archetyping(self);
+		if ($perform) archetyping(entity);
 	}
 
-	return self;
+	return entity;
 }
 
 <* Sets previously added component value in the entity by its type and initializer.
-   @param $Type : "Component type."
-   @param #init : "Component initialization block."
-   @return        "Pointer to the entity." *>
-macro Entity* Entity.set_component(&self, $Type, #init) @safemacro {
-	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
-		$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+   @param entity : "Pointer to the entity."
+   @param $Type  : "Component type."
+   @param #init  : "Component initialization block."
+   @return         "Pointer to the entity." *>
+macro Entity* set_component(Entity* entity, $Type, #init) @private @safemacro {
+	if (try Component* c = components_get(&entity.block.world.components, $Type::typeid)) {
+		$Type* ptr = ($Type*)(entity.block.chunks + entity.block.world.components.size * entity.chunk_idx + c.offset);
 		*ptr = #init;
 	}
 	
-	return self;
-}
-
-<* Gets component value by its type.
-   @param $Type : "Component type."
-   @return "Component value."
-   @return? NOT_FOUND : "Component was not found (added)." *>
-macro Entity.get(&self, $Type) {
-	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
-		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
-			return *ptr;
-		}
-	}
-
-	return NOT_FOUND~;
+	return entity;
 }
 
 <* Gets reference to the component value by its type.
@@ -83,22 +70,37 @@ macro void*? Entity.get_mut(&self, $Type) {
 }
 
 <* Gets component value by its type.
-   @param $Type : "Component type." *>
-macro Entity.@get(&self, $Type; @body(value)) {
+   @param $Type : "Component type."
+   @return "Component value."
+   @return? NOT_FOUND : "Component was not found (added)." *>
+macro Entity.get(&self, $Type) {
 	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
 			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
-			@body(*ptr);
+			return *ptr;
 		}
 	}
+
+	return NOT_FOUND~;
 }
 
 <* Gets reference to the component value by its type.
    @param $Type : "Component type." *>
-macro Entity.@get_mut(&self, $Type; @body(ptr)) {
+macro Entity.get_mut_1(&self, $Type; @body(ptr)) @safemacro {
 	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
 			@body(($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset));
+		}
+	}
+}
+
+<* Gets component value by its type.
+   @param $Type : "Component type." *>
+macro Entity.get_1(&self, $Type; @body(value)) @safemacro {
+	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
+		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
+			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+			@body(*ptr);
 		}
 	}
 }

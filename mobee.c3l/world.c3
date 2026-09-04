@@ -265,28 +265,20 @@ macro void*? World.get(&self, $Type) {
 }
 
 <* Sets resource value by its type and initializer.
+   @param world : "Pointer to the world."
    @param $Type : "Resource type."
    @param #init : "Resource initialization block."
-   @return "Pointer to the world for chain calls." *>
-macro World* World.@set(&self, $Type, #init) {
-	if (try Resource* r = resources_get(&self.resources, $Type::typeid)) {
-		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
+   @return        "Pointer to the world for chain calls." *>
+macro World* set_resource(World* world, $Type, #init) @private @safemacro {
+	/* Storage for resources is allocated in run method. */
+	if (!world.running) abort(ERR_WORLD_IS_NOT_RUNNING);
+	
+	if (try Resource* r = resources_get(&world.resources, $Type::typeid)) {
+		$Type* ptr = ($Type*)(world.resources.storage + r.offset);
 		*ptr = #init;
 	}
 
-	return self;
-}
-
-<* Sets resource value by its instance.
-   @param $resource : "Resource instance."
-   @return            "Pointer to the world for chain calls." *>
-macro World* World.set(&self, $resource) {
-	if (try Resource* r = resources_get(&self.resources, $Typeof($resource)::typeid)) {
-		$Typeof($resource)* ptr = ($Typeof($resource)*)(self.resources.storage + r.offset);
-		*ptr = $resource;
-	}
-
-	return self;
+	return world;
 }
 
 <* Step through each entity reference in the world.
