@@ -147,8 +147,14 @@ fn void system2(Entities* entities, World* world) {
 	foreach (entity : entities) {
 		// ecount++;
 		
-		entity.get_mut_6(Position, Center, VecType, Health, Velocity, Rotation;
-			Position* pos, Center* center, VecType* vec, Health* health, Velocity* vel, Rotation* rot) {
+		// entity.get_mut_6(Position, Center, VecType, Health, Velocity, Rotation;
+		// 	Position* pos, Center* center, VecType* vec, Health* health, Velocity* vel, Rotation* rot) {
+		// 	pos.x += 1;
+		// 	center.cx += 1;
+		// };
+
+		entity.get_7(Position, Center, VecType, Health, Velocity, Rotation, Mutation;
+			pos, center, vec, health, vel, rot, mut) {
 			pos.x += 1;
 			center.cx += 1;
 		};
@@ -194,8 +200,14 @@ fn void system3(Entities* entities, World* world) {
 	foreach (entity : entities) {
 		// ecount++;
 
-		entity.get_mut_6(Position, Center, VecType, Health, Velocity, Rotation;
-			Position* pos, Center* center, VecType* vec, Health* health, Velocity* vel, Rotation* rot) {
+		// entity.get_mut_6(Position, Center, VecType, Health, Velocity, Rotation;
+		// 	Position* pos, Center* center, VecType* vec, Health* health, Velocity* vel, Rotation* rot) {
+		// 	pos.x += 1;
+		// 	center.cx += 1;
+		// };
+
+		entity.get_7(Position, Center, VecType, Health, Velocity, Rotation, Mutation;
+			pos, center, vec, health, vel, rot, mut) {
 			pos.x += 1;
 			center.cx += 1;
 		};
@@ -330,15 +342,17 @@ fn void main() {
 			 Rotation, { .angle = 12 },
 			 VecType,  { 20, 40 },
 			 Mutation, { .skin = 22 });
-	
-	if (try pos = e1.get(Position)) { io::printfn("e1 pos: %s", pos); }
-	if (try c = e1.get(Center))     { io::printfn("e1 center: %s", c); }
-	if (try h = e1.get(Health))     { io::printfn("e1 health: %s", h); }
-	if (try v = e1.get(Velocity))   { io::printfn("e1 velocity: %s", v); }
-	if (try r = e1.get(Rotation))   { io::printfn("e1 rotation: %s", r); }
-	if (try vec = e1.get(VecType))  { io::printfn("e1 vec: %s", vec); }
-	if (try m = e1.get(Mutation))   { io::printfn("e1 mutation: %s", m); }
 
+	e1.get_7(Position, Center, Health, Velocity, Rotation, VecType, Mutation; pos, c, h, v, r, vec, m) {
+		io::printfn("e1 pos: %s", pos);
+		io::printfn("e1 center: %s", c);
+		io::printfn("e1 health: %s", h);
+		io::printfn("e1 velocity: %s", v);
+		io::printfn("e1 rotation: %s", r);
+		io::printfn("e1 vec: %s", vec);
+		io::printfn("e1 mutation: %s", m);
+	};
+	
 	io::printn("--- mutating components ---");
 
 	e1.get_mut_7(Position, Center, Health, Velocity, Rotation, VecType, Mutation;
@@ -388,17 +402,33 @@ fn void main() {
 			  Resource4, { .pos = { .x = 2, .y = 3 }},
 			  Resource5, { .arr = { 3, 7, 1, 2, 3, 4, 5, 6, 7, 8 }});
 
-	if (try Resource1* r1 = world.get(Resource1)) { io::printfn("r1: %s", r1); }
-	if (try Resource2* r2 = world.get(Resource2)) { io::printfn("r2: %s", r2); }
-	if (try Resource3* r3 = world.get(Resource3)) { io::printfn("r3: %s", r3); }
-	if (try Resource4* r4 = world.get(Resource4)) { io::printfn("r4: %s", r4); }
-	if (try Resource5* r5 = world.get(Resource5)) { io::printfn("r5: %s", r5); }
+	world.get_5(Resource1, Resource2, Resource3, Resource4, Resource5; r1, r2, r3, r4, r5) {
+		io::printfn("r1: %s", r1);
+		io::printfn("r2: %s", r2);
+		io::printfn("r3: %s", r3);
+		io::printfn("r4: %s", r4);
+		io::printfn("r5: %s", r5);
+	};
+	
+	io::printn("--- mutating resources ---");
 
-	world.set(Resource1, { .enabled = false })
-		 .set(Resource3, { .some = 900 });
+	world.get_mut_5(Resource1, Resource2, Resource3, Resource4, Resource5;
+		Resource1* r1, Resource2* r2, Resource3* r3, Resource4* r4, Resource5* r5) {
+		r1.enabled = false;
+		r2.count += 1;
+		r3.some += 1;
+		r4.pos.x += 1;
+		r4.pos.y += 1;
+		r4.hp.hp += 1;
+		r5.arr[0] += 1;
+		r5.arr[1] += 1;
+	};
 
-	if (try Resource1* r1 = world.get(Resource1)) { io::printfn("r1: %s", r1); }
-	if (try Resource3* r3 = world.get(Resource3)) { io::printfn("r3: %s", r3); }
+	if (try Resource1 r1 = world.get(Resource1)) { io::printfn("r1: %s", r1); }
+	if (try Resource2 r2 = world.get(Resource2)) { io::printfn("r2: %s", r2); }
+	if (try Resource3 r3 = world.get(Resource3)) { io::printfn("r3: %s", r3); }
+	if (try Resource4 r4 = world.get(Resource4)) { io::printfn("r4: %s", r4); }
+	if (try Resource5 r5 = world.get(Resource5)) { io::printfn("r5: %s", r5); }
 
 	io::printfn("-- spawning statics ( %d ) --", 100000 + 3);
 	clock = clock::now();
@@ -642,26 +672,26 @@ fn void main() {
 
 	// io::readline(tmem)!!;
 
-	if (try Resource1* r = world.get(Resource1)) {
+	if (try Resource1* r = world.get_mut(Resource1)) {
 		io::printn(r);
 		r.enabled = true;
 	}
-	if (try Resource1* r = world.get(Resource1)) {
+	if (try Resource1 r = world.get(Resource1)) {
 		io::printn(r);
 	}
 
 	world.set(Resource1, { .enabled = false });
-	if (try Resource1* r = world.get(Resource1)) {
+	if (try Resource1 r = world.get(Resource1)) {
 		io::printn(r);
 	}
 
 	io::printn("--- Resource2 ---");
-	if (try Resource2* r = world.get(Resource2)) {
+	if (try Resource2 r = world.get(Resource2)) {
 		io::printn(r);
 	}
 
 	world.set(Resource2, { .enabled = true, .count = 7 });
-	if (try Resource2* r = world.get(Resource2)) {
+	if (try Resource2 r = world.get(Resource2)) {
 		io::printn(r);
 	}
 

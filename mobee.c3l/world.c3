@@ -255,13 +255,43 @@ fn Block* new_block(World* world, Lifetime lifetime) @local {
    @param $Type : "Resource type."
    @return        "Pointer to the resource."
    @return? NOT_FOUND : "Resource was not found (registered)." *>
-macro void*? World.get(&self, $Type) {
+macro void*? World.get_mut(&self, $Type) {
 	if (try Resource* r = resources_get(&self.resources, $Type::typeid)) {
 		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
 		return ptr;
 	}
 
 	return NOT_FOUND~;
+}
+
+<* Gets resource value by its type.
+   @param $Type : "Resource type."
+   @return        "Resource value"
+   @return? NOT_FOUND : "Resource was not found (registered)." *>
+macro World.get(&self, $Type) {
+	if (try Resource* r = resources_get(&self.resources, $Type::typeid)) {
+		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
+		return *ptr;
+	}
+
+	return NOT_FOUND~;
+}
+
+<* Gets reference to the resource value by its type.
+   @param $Type : "Resource type." *>
+macro World.get_mut_1(&self, $Type; @body(ptr)) @safemacro {
+	if (try Resource* r = resources_get(&self.resources, $Type::typeid)) {
+		@body(($Type*)(self.resources.storage + r.offset));
+	}
+}
+
+<* Gets resource value by its type.
+   @param $Type : "Resource type." *>
+macro World.get_1(&self, $Type; @body(value)) @safemacro {
+	if (try Resource* r = resources_get(&self.resources, $Type::typeid)) {
+		$Type* ptr = ($Type*)(self.resources.storage + r.offset);
+		@body(*ptr);
+	}
 }
 
 <* Sets resource value by its type and initializer.
