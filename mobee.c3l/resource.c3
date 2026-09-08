@@ -1,6 +1,5 @@
 module mobee;
 
-import std::math;
 import std::sort;
 
 <* Resource element type description. *>
@@ -50,8 +49,8 @@ fn sz? resource_index(Resources* resources, typeid type) @private @inline {
    @param type      : "Resource type."
    @param resource  : "Instance of the resource type." *>
 fn void resources_add(Resources* resources, typeid type, Resource resource) @private {
-	if (resources_has(resources, type)) abort("Resource already registered.");
-	if (resources.count == MAX_RESOURCES_COUNT) abort("The maximum count of resources has been reached.");
+	if (resources_has(resources, type)) abort(ERR_RESOURCE_ALREADY_REGISTERED);
+	if (resources.count == MAX_RESOURCES_COUNT) abort(ERR_MAX_RESOURCES_COUNT);
 
 	resources.ids[resources.count] = (uptr)type;
 	resources.types[resources.count] = resource;
@@ -60,8 +59,8 @@ fn void resources_add(Resources* resources, typeid type, Resource resource) @pri
 }
 
 <* Gets reference to the resource type.
-   @param resources : "Reference to resource types collection."
-   @param type      : "Resource type."
+   @param resources   : "Reference to resource types collection."
+   @param type        : "Resource type."
    @return              "Pointer to resource's type instance."
    @return? NOT_FOUND : "Resource type was not found (registered)." *>
 fn Resource*? resources_get(Resources* resources, typeid type) @private @inline {

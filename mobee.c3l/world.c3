@@ -12,6 +12,8 @@ struct World {
 	Tags tags;
 	<* Registered resource types. *>
 	Resources resources;
+	<* Registered relation types. *>
+	Relations relations;
 	<* All mounted systems. *>
 	Systems systems;
 	<* Systems split by phase for running in the pipeline. *>
@@ -30,6 +32,8 @@ struct World {
 	bool performing;
 	<* Deferred actions for the world. *>
 	Deferred deferred;
+	<* Components + Relations chunk size in bytes. *>
+	sz chunk_size;
 }
 
 <* Gets world blocks count for specific (default: all) lifetimes.
@@ -73,26 +77,51 @@ fn void world_init(World* world) @private {
 		world.deferred.despawning.init(mem);
 		world.deferred.archetyping.init(mem);
 	}
+
+	/* Register builtin relations. */
+	world.register(RELATION, ChildOf);
+	world.register(RELATION, ParentOf);
+	world.register(RELATION, RelationOf);
 }
 
 <* Registers element type for the world.
    @param element : "World element kind."
-   @param $Type   : "Element (component/tag/resource) type."
+   @param $Type   : "Element (component/tag/resource/relation) type."
    @return          "Pointer to the world for chain calls." *>
 macro World* World.register(&self, Element element, $Type) {
 	if (self.running) return self;
 	
 	switch (element) {
 		case COMPONENT:
+			if (tags_has(&self.tags, $Type::typeid) || relations_has(&self.relations, $Type::typeid)) {
+				abort(ERR_TYPE_ALREADY_REGISTERED);
+			}
+				
 			components_add(&self.components, $Type::typeid,
 				{ .type = $Type::typeid, .size = $Type::size, .alignment = $Type::alignment,
 				  .idx = self.components.count });
+				
 		case TAG:
+			if (components_has(&self.components, $Type::typeid) || relations_has(&self.relations, $Type::typeid)) {
+				abort(ERR_TYPE_ALREADY_REGISTERED);
+			}
+				
 			tags_add(&self.tags, $Type::typeid, { .type = $Type::typeid, .idx = self.tags.count });
+			
 		case RESOURCE:
 			resources_add(&self.resources, $Type::typeid,
 				{ .type = $Type::typeid, .size = $Type::size, .alignment = $Type::alignment,
 				  .idx = self.resources.count });
+				
+		case RELATION:
+			if (components_has(&self.components, $Type::typeid) || tags_has(&self.tags, $Type::typeid)) {
+				abort(ERR_TYPE_ALREADY_REGISTERED);
+			}
+
+			relations_add(&self.relations, $Type::typeid,
+				{ .type = $Type::typeid, .size = $Type::size, .alignment = $Type::alignment,
+				  .idx = self.relations.count });
+			
 		case SYSTEM: break;
 	}
 
@@ -186,6 +215,10 @@ fn World* World.run(&self) {
 
 	if (self.components.size > STACK_BUFFER_SIZE) abort(ERR_COMPONENTS_SIZE_INVALID);
 
+	relations_adjust(self);
+
+	self.chunk_size = self.components.size + self.relations.size;
+	
 	if (self.resources.count > 0) {
 		resources_adjust(&self.resources);
 
@@ -379,7 +412,7 @@ fn sz? get_system_index(World* world, String name) @private {
 
 <* Progress one step of the world life. Runs all mounted systems for all phases. *>
 fn void World.progress(&self) {
-	if (!self.running) abort("Run the world first.");
+	if (!self.running) abort(ERR_WORLD_IS_NOT_RUNNING);
 	
 	if (self.approach == ARCHETYPE) {
 		/* Run systems with START phase, we should do it only once. */
@@ -401,9 +434,9 @@ fn void World.progress(&self) {
 		self.@each(; Entity* entity, Lifetime lifetime) {
 			foreach (system : self.systems) {
 				if (system.enabled() && !is_task(system) && system.lifetime & lifetime) {
-					if ((!system_has_tags(system) ||
+					if ((system_has_no_tags(system) ||
 						 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &entity.tags, &system.tags)) &&
-						(!system_has_components(system) ||
+						(system_has_no_components(system) ||
 						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &entity.components, &system.components))) {
 						/* Add pointer to entity into system collection of entities for current system call. */
 						system.entities.push(entity);
@@ -434,9 +467,9 @@ fn void step_archetype(World* world, Systems* systems) @local @inline {
 			} else {
 				foreach (archetype : world.archetypes) {
 					if (archetype.entities.len() > 0 &&
-						(!system_has_tags(system) ||
+						(system_has_no_tags(system) ||
 						 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, &system.tags)) &&
-						(!system_has_components(system) ||
+						(system_has_no_components(system) ||
 						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, &system.components))) {
 					   	/* Call system callback for matched archetype. */
 						system.callback(&archetype.entities, world);

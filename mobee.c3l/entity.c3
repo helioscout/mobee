@@ -29,7 +29,7 @@ struct Entity {
    @return           "Pointer to the entity." *>
 macro Entity* add_component(Entity* entity, $Type, #init, bool $perform = true) @private @safemacro {
 	if (try Component* c = components_get(&entity.block.world.components, $Type::typeid)) {
-		$Type* ptr = ($Type*)(entity.block.chunks + entity.block.world.components.size * entity.chunk_idx + c.offset);
+		$Type* ptr = ($Type*)(entity.block.chunks + entity.block.world.chunk_size * entity.chunk_idx + c.offset);
 		*ptr = #init;												/* Storing value in the chunk. */
 		
 		marker_set(COMPONENTS_MARKER_SIZE, &entity.components, c.idx);	/* Setting marker bit.		   */
@@ -47,7 +47,7 @@ macro Entity* add_component(Entity* entity, $Type, #init, bool $perform = true) 
    @return         "Pointer to the entity." *>
 macro Entity* set_component(Entity* entity, $Type, #init) @private @safemacro {
 	if (try Component* c = components_get(&entity.block.world.components, $Type::typeid)) {
-		$Type* ptr = ($Type*)(entity.block.chunks + entity.block.world.components.size * entity.chunk_idx + c.offset);
+		$Type* ptr = ($Type*)(entity.block.chunks + entity.block.world.chunk_size * entity.chunk_idx + c.offset);
 		*ptr = #init;
 	}
 	
@@ -61,7 +61,7 @@ macro Entity* set_component(Entity* entity, $Type, #init) @private @safemacro {
 macro void*? Entity.get_mut(&self, $Type) {
 	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.chunk_size * self.chunk_idx + c.offset);
 			return ptr;
 		}
 	}
@@ -76,7 +76,7 @@ macro void*? Entity.get_mut(&self, $Type) {
 macro Entity.get(&self, $Type) {
 	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.chunk_size * self.chunk_idx + c.offset);
 			return *ptr;
 		}
 	}
@@ -89,7 +89,7 @@ macro Entity.get(&self, $Type) {
 macro Entity.get_mut_1(&self, $Type; @body(ptr)) @safemacro {
 	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			@body(($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset));
+			@body(($Type*)(self.block.chunks + self.block.world.chunk_size * self.chunk_idx + c.offset));
 		}
 	}
 }
@@ -99,7 +99,7 @@ macro Entity.get_mut_1(&self, $Type; @body(ptr)) @safemacro {
 macro Entity.get_1(&self, $Type; @body(value)) @safemacro {
 	if (try Component* c = components_get(&self.block.world.components, $Type::typeid)) {
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset);
+			$Type* ptr = ($Type*)(self.block.chunks + self.block.world.chunk_size * self.chunk_idx + c.offset);
 			@body(*ptr);
 		}
 	}
@@ -142,7 +142,7 @@ fn any[] Entity.all_mut(&self, Allocator allocator) {
 		Component* c = &self.block.world.components.types[idx];
 		
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			void* ptr = self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset;
+			void* ptr = self.block.chunks + self.block.world.chunk_size * self.chunk_idx + c.offset;
 			values.push(any_make(ptr, c.type));
 		}
 	};
@@ -166,7 +166,7 @@ macro Entity.@each(&self; @body(type, ptr)) {
 		Component* c = &self.block.world.components.types[idx];
 
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			void* ptr = self.block.chunks + self.block.world.components.size * self.chunk_idx + c.offset;
+			void* ptr = self.block.chunks + self.block.world.chunk_size * self.chunk_idx + c.offset;
 			@body(c.type, ptr);
 		}
 	};

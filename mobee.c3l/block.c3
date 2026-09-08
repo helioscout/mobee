@@ -11,9 +11,10 @@ struct Block @private {
 	<* Entities collection (chunk) for the block.
 	   The index of the entity corresponds to the index of its components in each chunk. *>
 	Entity[] entities;
-	<* Component chunks collection for the block.
+	<* Component and relation chunks collection for the block.
 	   Chunk is represented as a block in memory with sequentially recorded component's values.
-	   The order (offset of each component) is defined in Components collection.
+	   And after them sequentially recorded relations with targets values.
+	   The order (offset of each component/relation) is defined in Components/Relations collection.
 	   A pointer to allocated memory block. *>
 	char* chunks;
 	<* Deleted (freed) rows in the dynamic lifetime block. *>
@@ -29,7 +30,7 @@ struct Block @private {
    @param block : "Reference to the block." *>
 fn void block_init(Block* block) @private {
 	block.entities = mem::alloc_array(Entity, block.size);
-	block.chunks = malloc(block.world.components.size * block.size);
+	block.chunks = malloc(block.world.chunk_size * block.size);
 }
 
 <* Checks for existence of free rows (places to insert new entities/components).

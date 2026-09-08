@@ -38,8 +38,8 @@ fn sz? tag_index(Tags* tags, typeid type) @private @inline {
    @param type : "Tag type."
    @param tag  : "Instance of the tag type." *>
 fn void tags_add(Tags* tags, typeid type, Tag tag) @private {
-	if (tags_has(tags, type)) abort("Tag already registered.");
-	if (tags.count == MAX_TAGS_COUNT) abort("The maximum count of tags has been reached.");
+	if (tags_has(tags, type)) abort(ERR_TAG_ALREADY_REGISTERED);
+	if (tags.count == MAX_TAGS_COUNT) abort(ERR_MAX_TAGS_COUNT);
 
 	tags.ids[tags.count] = (uptr)type;
 	tags.types[tags.count] = tag;

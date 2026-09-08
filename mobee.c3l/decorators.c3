@@ -36,7 +36,7 @@ macro Entity* add_2_components(Entity* entity, $Type1, #init1, $Type2, #init2) @
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 2) {
 		/* We need to read existing components values first to save values of ones
@@ -81,7 +81,7 @@ macro Entity* add_3_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = emtity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = emtity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 3) {
 		/* We need to read existing components values first to save values of ones
@@ -132,7 +132,7 @@ macro Entity* add_4_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 4) {
 		/* We need to read existing components values first to save values of ones
@@ -190,7 +190,7 @@ macro Entity* add_5_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 5) {
 		/* We need to read existing components values first to save values of ones
@@ -254,7 +254,7 @@ macro Entity* add_6_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 6) {
 		/* We need to read existing components values first to save values of ones
@@ -324,7 +324,7 @@ macro Entity* add_7_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 7) {
 		/* We need to read existing components values first to save values of ones
@@ -400,7 +400,7 @@ macro Entity* add_8_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 8) {
 		/* We need to read existing components values first to save values of ones
@@ -482,7 +482,7 @@ macro Entity* add_9_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 9) {
 		/* We need to read existing components values first to save values of ones
@@ -570,7 +570,7 @@ macro Entity* add_10_components(Entity* entity, $Type1, #init1, $Type2, #init2, 
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 10) {
 		/* We need to read existing components values first to save values of ones
@@ -665,7 +665,7 @@ macro Entity* add_11_components(Entity* entity, $Type1, #init1, $Type2, #init2, 
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 11) {
 		/* We need to read existing components values first to save values of ones
@@ -766,7 +766,7 @@ macro Entity* add_12_components(Entity* entity, $Type1, #init1, $Type2, #init2, 
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 12) {
 		/* We need to read existing components values first to save values of ones
@@ -873,7 +873,7 @@ macro Entity* add_13_components(Entity* entity, $Type1, #init1, $Type2, #init2, 
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 13) {
 		/* We need to read existing components values first to save values of ones
@@ -981,7 +981,7 @@ macro Entity* set_2_components(Entity* entity, $Type1, #init1, $Type2, #init2) @
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 2) {
 		/* We need to read existing components values first to save values of ones
@@ -1021,7 +1021,7 @@ macro Entity* set_3_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 3) {
 		/* We need to read existing components values first to save values of ones
@@ -1066,7 +1066,7 @@ macro Entity* set_4_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 4) {
 		/* We need to read existing components values first to save values of ones
@@ -1117,7 +1117,7 @@ macro Entity* set_5_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 5) {
 		/* We need to read existing components values first to save values of ones
@@ -1173,7 +1173,7 @@ macro Entity* set_6_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 6) {
 		/* We need to read existing components values first to save values of ones
@@ -1234,7 +1234,7 @@ macro Entity* set_7_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 7) {
 		/* We need to read existing components values first to save values of ones
@@ -1300,7 +1300,7 @@ macro Entity* set_8_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 8) {
 		/* We need to read existing components values first to save values of ones
@@ -1371,7 +1371,7 @@ macro Entity* set_9_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 9) {
 		/* We need to read existing components values first to save values of ones
@@ -1447,7 +1447,7 @@ macro Entity* set_10_components(Entity* entity, $Type1, #init1, $Type2, #init2, 
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 10) {
 		/* We need to read existing components values first to save values of ones
@@ -1529,7 +1529,7 @@ macro Entity* set_11_components(Entity* entity, $Type1, #init1, $Type2, #init2, 
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 11) {
 		/* We need to read existing components values first to save values of ones
@@ -1616,7 +1616,7 @@ macro Entity* set_12_components(Entity* entity, $Type1, #init1, $Type2, #init2, 
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 12) {
 		/* We need to read existing components values first to save values of ones
@@ -1708,7 +1708,7 @@ macro Entity* set_13_components(Entity* entity, $Type1, #init1, $Type2, #init2, 
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = entity.block.chunks + world.components.size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 13) {
 		/* We need to read existing components values first to save values of ones
@@ -2496,7 +2496,7 @@ macro Entity.get_mut_2(&self, $Type1, $Type2; @body(ptr1, ptr2)) @safemacro {
 	$Type2* c2 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2523,7 +2523,7 @@ macro Entity.get_mut_3(&self, $Type1, $Type2, $Type3; @body(ptr1, ptr2, ptr3)) @
 	$Type3* c3 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2554,7 +2554,7 @@ macro Entity.get_mut_4(&self, $Type1, $Type2, $Type3, $Type4; @body(ptr1, ptr2, 
 	$Type4* c4 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2589,7 +2589,7 @@ macro Entity.get_mut_5(&self, $Type1, $Type2, $Type3, $Type4, $Type5; @body(ptr1
 	$Type5* c5 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2629,7 +2629,7 @@ macro Entity.get_mut_6(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6;
 	$Type6* c6 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2673,7 +2673,7 @@ macro Entity.get_mut_7(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $T
 	$Type7* c7 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2721,7 +2721,7 @@ macro Entity.get_mut_8(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $T
 	$Type8* c8 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2773,7 +2773,7 @@ macro Entity.get_mut_9(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $T
 	$Type9* c9 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2829,7 +2829,7 @@ macro Entity.get_mut_10(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $
 	$Type10* c10 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2890,7 +2890,7 @@ macro Entity.get_mut_11(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $
 	$Type11* c11 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -2955,7 +2955,7 @@ macro Entity.get_mut_12(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $
 	$Type12* c12 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3024,7 +3024,7 @@ macro Entity.get_mut_13(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $
 	$Type13* c13 = null;
 	
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3071,7 +3071,7 @@ macro Entity.get_2(&self, $Type1, $Type2; @body(value1, value2)) @safemacro {
 	$Type2 c2 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3098,7 +3098,7 @@ macro Entity.get_3(&self, $Type1, $Type2, $Type3; @body(value1, value2, value3))
 	$Type3 c3 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3129,7 +3129,7 @@ macro Entity.get_4(&self, $Type1, $Type2, $Type3, $Type4; @body(value1, value2, 
 	$Type4 c4 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3165,7 +3165,7 @@ macro Entity.get_5(&self, $Type1, $Type2, $Type3, $Type4, $Type5;
 	$Type5 c5 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3205,7 +3205,7 @@ macro Entity.get_6(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6;
 	$Type6 c6 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3249,7 +3249,7 @@ macro Entity.get_7(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $Type7
 	$Type7 c7 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3297,7 +3297,7 @@ macro Entity.get_8(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $Type7
 	$Type8 c8 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3349,7 +3349,7 @@ macro Entity.get_9(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $Type7
 	$Type9 c9 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3405,7 +3405,7 @@ macro Entity.get_10(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $Type
 	$Type10 c10 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3466,7 +3466,7 @@ macro Entity.get_11(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $Type
 	$Type11 c11 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3532,7 +3532,7 @@ macro Entity.get_12(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $Type
 	$Type12 c12 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];
@@ -3602,7 +3602,7 @@ macro Entity.get_13(&self, $Type1, $Type2, $Type3, $Type4, $Type5, $Type6, $Type
 	$Type13 c13 @noinit;
 
 	World* world = self.block.world;
-	char* chunk_ptr = self.block.chunks + world.components.size * self.chunk_idx;
+	char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
 
 	for (sz i = 0; i < world.components.count; i++) {
 		uptr id = world.components.ids[i];

@@ -5,15 +5,27 @@ struct System {
 	<* Name of the system. It must be unique. Used for getting the system from the world. *>
 	String name;
 	<* System state. Uses:
-	   ENABLED:        If system is enabled it will run in each step of the world progress,
-	                   disable it to pause execution for some reason.
-	   HAS_TAGS:       Query tags has been registered. For optimization if wasn't.
-	   HAS_COMPONENTS: Query component has been registered. For optimization if wasn't. *>
+	   ENABLED:				   If system is enabled it will run in each step of the world progress,
+	        				   disable it to pause execution for some reason.
+	   HAS_TAGS:			   Query tags has been registered. For optimization if wasn't.
+	   HAS_COMPONENTS:		   Query component has been registered. For optimization if wasn't.
+	   HAS_RELATIONS:		   Query relations has been registered. For optimization if wasn't.
+	   HAS_WITHOUT_TAGS:       Query excluding tags has been registered. For optimization if wasn't.
+	   HAS_WITHOUT_COMPONENTS: Query excluding components has been registered. For optimization if wasn't.
+	   HAS_WITHOUT_RELATIONS:  Query excluding relations has been registered. For optimization if wasn't. *>
 	ElementState state;
 	<* Components marker, each set bit specifies component in the system match query. *>
 	sz[COMPONENTS_MARKER_SIZE] components;
 	<* Tags marker, each set bit specifies tag in the system match query. *>
 	sz[TAGS_MARKER_SIZE] tags;
+	<* Relations marker, each set bit specifies relation in the system match query. *>
+	sz[RELATIONS_MARKER_SIZE] relations;
+	<* Excluding components marker, each set bit specifies component in the system match query. *>
+	sz[COMPONENTS_MARKER_SIZE] without_components;
+	<* Excluding tags marker, each set bit specifies tag in the system match query. *>
+	sz[TAGS_MARKER_SIZE] without_tags;
+	<* Excluding relations marker, each set bit specifies relation in the system match query. *>
+	sz[RELATIONS_MARKER_SIZE] without_relations;
 	<* System running phase, order in the pipeline. By default equals UPDATE. *>
 	Phase phase;
 	<* Entities lifetime flag to optimize queries and do not process lifetimes
@@ -31,15 +43,20 @@ struct System {
    @return "True if system is enabled, otherwise - false." *>
 fn bool System.enabled(&self) @inline => self.state & ElementState.ENABLED != 0;
 
-<* Checks if the system has components.
+<* Checks if the system has no components.
    @param system : "Pointer to the system."
-   @return "True if system has components, otherwise - false." *>
-fn bool system_has_components(System* system) @private @inline => system.state & ElementState.HAS_COMPONENTS != 0;
+   @return "True if system has no components, otherwise - false." *>
+fn bool system_has_no_components(System* system) @private @inline => system.state & ElementState.HAS_COMPONENTS == 0;
 
-<* Checks if the system has tags.
+<* Checks if the system has no tags.
    @param system : "Pointer to the system."
-   @return "True if system has tags, otherwise - false." *>
-fn bool system_has_tags(System* system) @private @inline => system.state & ElementState.HAS_TAGS != 0;
+   @return "True if system has no tags, otherwise - false." *>
+fn bool system_has_no_tags(System* system) @private @inline => system.state & ElementState.HAS_TAGS == 0;
+
+<* Checks if the system has no relations.
+   @param system : "Pointer to the system."
+   @return "True if system has no relations, otherwise - false." *>
+fn bool system_has_no_relations(System* system) @private @inline => system.state & ElementState.HAS_RELATIONS == 0;
 
 <* Checks if the system is a task.
    @param system : "Pointer to the system."

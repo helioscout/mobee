@@ -1,6 +1,5 @@
 module mobee;
 
-import std::math;
 import std::sort;
 
 <* Component elment type description. *>
@@ -51,8 +50,8 @@ fn sz? component_index(Components* components, typeid type) @private @inline {
    @param type       : "Component type."
    @param component  : "Instance of the component type." *>
 fn void components_add(Components* components, typeid type, Component component) @private {
-	if (components_has(components, type)) abort("Component already registered.");
-	if (components.count == MAX_COMPONENTS_COUNT) abort("The maximum count of components has been reached.");
+	if (components_has(components, type)) abort(ERR_COMPONENT_ALREADY_REGISTERED);
+	if (components.count == MAX_COMPONENTS_COUNT) abort(ERR_MAX_COMPONENTS_COUNT);
 
 	components.ids[components.count] = (uptr)type;
 	components.types[components.count] = component;

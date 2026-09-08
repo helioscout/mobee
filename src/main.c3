@@ -378,13 +378,13 @@ fn void main() {
 
 	io::printn("--- setting components ---");
 
-	e1.set(Position, { .x = 11, .y = 12 });//,
-		   // Center,   { .cx = 11, .cy = 22  },
-		   // Health,   { .hp = 7 },
-		   // Velocity, { 99 },
-		   // Rotation, { .angle = 91 },
-		   // VecType,  { 40, 60 },
-		   // Mutation, { .skin = 28 });
+	e1.set(Position, { .x = 11, .y = 12 },
+		   Center,   { .cx = 11, .cy = 22  },
+		   Health,   { .hp = 7 },
+		   Velocity, { 99 },
+		   Rotation, { .angle = 91 },
+		   VecType,  { 40, 60 },
+		   Mutation, { .skin = 28 });
 
 	if (try pos = e1.get(Position)) { io::printfn("e1 pos: %s", pos); }
 	if (try c = e1.get(Center))     { io::printfn("e1 center: %s", c); }

@@ -20,6 +20,8 @@ const sz MAX_COMPONENTS_COUNT = 127;
 const sz MAX_TAGS_COUNT = 127;
 <* Maximum resources count available for adding to the world. *>
 const sz MAX_RESOURCES_COUNT = 127;
+<* Maximum relations count available for adding to entity. *>
+const sz MAX_RELATIONS_COUNT = 64;
 
 <* Count of bits in one marker word (element of marker array). *>
 const sz MARKER_BITS_COUNT @private = sz::size * 8;
@@ -27,6 +29,8 @@ const sz MARKER_BITS_COUNT @private = sz::size * 8;
 const sz COMPONENTS_MARKER_SIZE @private = (MAX_COMPONENTS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
 <* Size of tags marker (array of bitset). *>
 const sz TAGS_MARKER_SIZE @private = (MAX_TAGS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
+<* Size of relations marker (array of bitset). *>
+const sz RELATIONS_MARKER_SIZE @private = (MAX_RELATIONS_COUNT + MARKER_BITS_COUNT - 1) / MARKER_BITS_COUNT;
 
 <* Pointers to component values when retrieving/getting all. *>
 alias ComponentPointers = FixedList { any, MAX_COMPONENTS_COUNT };
@@ -72,25 +76,37 @@ enum Element {
 	   as in other ECS, they have own storage and methods. *>
    RESOURCE,
    <* System element type for running actions at each step of the world progress. *>
-   SYSTEM
+   SYSTEM,
+	<* Relation between entities. Must be defined as a struct or distinct custom type.
+	   Relation can be associated with data that are used for some game logic.
+	   It's like a component but with target/attached entity. *>
+	RELATION
 }
 
 <* The state flags for an element (entity or system). *>
-constdef ElementState : inline char {
-   <* Entity has been deleted. *>
-   DELETED        = 0b00000001,
-   <* System is enabled. *>
-   ENABLED        = 0b00000010,
-   <* System has tags in the match query. *>
-   HAS_TAGS       = 0b00000100,
-   <* System has components in the match query. *>
-   HAS_COMPONENTS = 0b00001000,
-   <* Indicates that a system is task, has no components or tags in match query. *>
-   IS_TASK        = 0b00010000,
-   <* Entity should be re-archetyped at deferred (perform) stage. *>
-   ARCHETYPING    = 0b00100000,
-   <* Entity should be despawned at deferred (perform) stage. *>
-   DESPAWNING     = 0b01000000
+constdef ElementState : inline ushort {
+	<* Entity has been deleted. *>
+	DELETED				   = 0b0000000000000001,
+	<* System is enabled. *>
+	ENABLED				   = 0b0000000000000010,
+	<* System has tags in the match query. *>
+	HAS_TAGS			   = 0b0000000000000100,
+	<* System has components in the match query. *>
+	HAS_COMPONENTS		   = 0b0000000000001000,
+	<* System has relations in the match query. *>
+	HAS_RELATIONS		   = 0b0000000000010000,
+	<* System has excluding tags condition in the match query. *>
+	HAS_WITHOUT_TAGS	   = 0b0000000000100000,
+	<* System has excluding components condition in the match query. *>
+	HAS_WITHOUT_COMPONENTS = 0b0000000001000000,
+	<* System has excluding relations condition in the match query. *>
+	HAS_WITHOUT_RELATIONS  = 0b0000000010000000,
+	<* Indicates that a system is task, has no components or tags in match query. *>
+	IS_TASK				   = 0b0000000100000000,
+	<* Entity should be re-archetyped at deferred (perform) stage. *>
+	ARCHETYPING			   = 0b0000001000000000,
+	<* Entity should be despawned at deferred (perform) stage. *>
+	DESPAWNING			   = 0b0000010000000000
 }
 
 <* Query match approach of slection entities for the systems. *>
@@ -126,6 +142,28 @@ constdef Phase : inline char {
 	MANUAL      = 4
 }
 
+/* Observer event types. */
+enum Event {
+	<* Entity has been spawned. *>
+	SPAWNED,
+	<* Entity has been despawned. *>
+	DESPAWNED,
+	<* Component has been added to an entity. *>
+	ADDED,
+	<* Component has been removed from an entity. *>
+	REMOVED,
+	<* Component value has been set (changed). *>
+	SET,
+	<* Tag has been added to an entity. *>
+	TAGGED,
+	<* Tag has been removed from an entity. *>
+	UNTAGGED,
+	<* Entity has been related with a target one. *>
+	RELATED,
+	<* Entity has been unrelated with a target one, relationship removed. *>
+	UNRELATED
+}
+
 <* Systems collections for each running phase. *>
 struct Schedule @private {
 	<* Systems that are being ran at the start phase. *>
@@ -153,11 +191,6 @@ struct Deferred {
 	Entities archetyping;
 }
 
-<* Callback function for the system.
-   @param entities : "Matched entities for the system."
-   @param world    : "Pointer to the world." *>
-alias SystemCallback = fn void (Entities* entities, World* world);
-
 <* Entities iterator. *>
 struct EntitiesIterator @private {
 	<* Current entity index. *>
@@ -166,11 +199,26 @@ struct EntitiesIterator @private {
 	Entity* entity;
 }
 
+<* Callback function for the system.
+   @param entities : "Matched entities for the system."
+   @param world    : "Pointer to the world." *>
+alias SystemCallback = fn void(Entities* entities, World* world);
+
+<* Callback procedure for the observer.
+   @param world    : "Pointer to the world."
+   @param entity   : "Pointer to the event target entity."
+   @param event    : "Emitted event type."
+   @param type     : "Event target component/tag/relation type that is adding/setting/removing."
+   @param element  : "Pointer to the component instance which was added/set/removed or to the target entity for relation events."
+   @param relation : "Pointer to the relation instance (relationship data) for relation events." *>
+alias ObserverCallback = fn void(World *world, Entity* entity, Event event, typeid type, void* element, void* relation);
+
 <* Accessing element is out of bounds of the collection. *>
 faultdef OUT_OF_BOUNDS;
 <* There is no element to swap with removed one in the collection. *>
 faultdef NO_SWAPPED_ELEMENT;
 
+const String ERR_TYPE_ALREADY_REGISTERED @private = "Type is already registered for another element kind.";
 const String ERR_SYSTEM_ALREADY_MOUNTED @private = "System with such name has already been mounted.";
 const String ERR_MANUAL_SYSTEM_NAME_NOT_PROVIDED @private = "Systems with MANUAL phase must have a name.";
 const String ERR_CALLBACK_NOT_PROVIDED @private = "Callback must be provided.";
@@ -179,3 +227,11 @@ const String ERR_WORLD_HAS_NO_COMPONENTS @private = "The world has no registered
 const String ERR_COMPONENTS_SIZE_INVALID @private = "Total components size must be less than STACK_BUFFER_SIZE.";
 const String ERR_RESOURCES_SIZE_INVALID @private = "Total resources size must be less than STACK_BUFFER_SIZE.";
 const String ERR_WRONG_ARGS_COUNT @private = "Wrong number of arguments.";
+const String ERR_COMPONENT_ALREADY_REGISTERED @private = "Component already registered.";
+const String ERR_MAX_COMPONENTS_COUNT @private = "The maximum count of components has been reached.";
+const String ERR_TAG_ALREADY_REGISTERED @private = "Tag already registered.";
+const String ERR_MAX_TAGS_COUNT @private = "The maximum count of tags has been reached.";
+const String ERR_RESOURCE_ALREADY_REGISTERED @private = "Resource already registered.";
+const String ERR_MAX_RESOURCES_COUNT @private = "The maximum count of resources has been reached.";
+const String ERR_RELATION_ALREADY_REGISTERED @private = "Relation already registered.";
+const String ERR_MAX_RELATIONS_COUNT @private = "The maximum count of relations has been reached.";
