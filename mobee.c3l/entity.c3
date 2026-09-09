@@ -10,11 +10,16 @@ struct Entity {
 	sz[COMPONENTS_MARKER_SIZE] components;
 	<* Tags marker, each set bit specifies that the tag exists in the entity. *>
 	sz[TAGS_MARKER_SIZE] tags;
+	<* Relations marker, each set bit specifies that the relation exists in the entity. *>
+	sz[RELATIONS_MARKER_SIZE] relations;
+	<* One-to-many relation marker, each bit specifies that the entity relation has
+	   several target entities (several parents, children and so on). *>
+	sz[RELATIONS_MARKER_SIZE] many;
 	<* Reference to the parent block. *>
 	Block* block;
 	<* The index of the entity in the collection (chunk index for its components). *>
 	sz chunk_idx;
-	<* Archetype reference which entity belongs to. Is null for entities without components/tags. *>
+	<* Archetype reference which entity belongs to. Is null for entities without components/tags/relations. *>
 	Archetype* archetype;
 	<* Entity index in the archetype collection (for fast removing). *>
 	sz arch_idx;
@@ -25,16 +30,15 @@ struct Entity {
    @param entity   : "Pointer to the entity."
    @param $Type    : "Component type."
    @param #init    : "Component initialization block."
-   @param $perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
    @return           "Pointer to the entity." *>
-macro Entity* add_component(Entity* entity, $Type, #init, bool $perform = true) @private @safemacro {
+macro Entity* add_component(Entity* entity, $Type, #init) @private @safemacro {
 	if (try Component* c = components_get(&entity.block.world.components, $Type::typeid)) {
 		$Type* ptr = ($Type*)(entity.block.chunks + entity.block.world.chunk_size * entity.chunk_idx + c.offset);
 		*ptr = #init;												/* Storing value in the chunk. */
 		
 		marker_set(COMPONENTS_MARKER_SIZE, &entity.components, c.idx);	/* Setting marker bit.		   */
 
-		if ($perform) archetyping(entity);
+		archetyping(entity);
 	}
 
 	return entity;
@@ -105,175 +109,94 @@ macro Entity.get_1(&self, $Type; @body(value)) @safemacro {
 	}
 }
 
-<* Gets references to all components of passed types.
-   @param allocator : "Allocator for returning slice underlying array."
-   @require $vaarg.len > 0 : "You must pass at least one component type. To get references to all components use all() method instead."
-   @return "Slice of any with pointers to component values." *>
-macro any[] Entity.get_all_mut(&self, Allocator allocator, ...) {
-	any[$vaarg.len]* values = (any[$vaarg.len]*)alloc::malloc(allocator, any::size * $vaarg.len);
-	sz idx = 0;	/* We need to know amount of really found component values. */
-
-	$for var $i = 0; $i < $vaarg.len; $i++:
-		var $Type = $vaarg[$i];
-		
-		$if @kindof($Type) == TypeKind.STRUCT || @kindof($Type) == TypeKind.TYPEDEF:
-			if (try $Type* value = self.get_mut($Type)) {
-				(*values)[idx++] = value;
-			}
-		$endif
-	$endfor
-	
-	/* If there are no components found, return empty slice. */
-	return idx == 0 ? {} : (*values)[:idx];
-}
-
-<* Gets references to all components of passed types. Alocates using temporary allocator.
-   Consider call this function inside @pool() { ... }; marco.
-   @return "Slice of any with pointers to component values." *>
-macro any[] Entity.tget_all_mut(&self, ...) => self.get_all_mut(tmem, ...$vaarg);
-
-<* Gets references to all components set in the entity.
-   @param allocator : "Allocator for returning slice underlying array."
-   @return "Slice of any with pointers to all component values." *>
-fn any[] Entity.all_mut(&self, Allocator allocator) {
-	ComponentPointers values;
-
-	for (sz idx = 0; idx < self.block.world.components.count; idx++) {
-		Component* c = &self.block.world.components.types[idx];
-		
-		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			void* ptr = self.block.chunks + self.block.world.chunk_size * self.chunk_idx + c.offset;
-			values.push(any_make(ptr, c.type));
-		}
-	};
-
-	return values.to_array(allocator);
-}
-
-<* Gets references to all components set in the entity. Alocates using temporary allocator.
-   Consider call this function inside @pool() { ... }; marco.
-   @return "Slice of any with pointers to all component values." *>
-fn any[] Entity.tall_mut(&self) => self.all_mut(tmem);
-
-<* Step through each component of the entity. Does not make any additional allocations.
+<* Step through each component pointer (mutable reference) of the entity.
    @param type : "Type (typeid) of the component."
-   @param ptr : "Pointer to the component value." *>
-macro Entity.@each(&self; @body(type, ptr)) {
+   @param ptr  : "Pointer to the component value." *>
+macro Entity.each(&self; @body(type, ptr)) @safemacro {
 	/* If entity has no components, return. */
 	if (marker_is_all_unset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &self.components)) return;
 
-	for (sz idx = 0; idx < self.block.world.components.count; idx++) {
-		Component* c = &self.block.world.components.types[idx];
+	World* world = self.block.world;
+
+	for (sz idx = 0; idx < world.components.count; idx++) {
+		Component* c = &world.components.types[idx];
 
 		if (marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, c.idx)) {
-			void* ptr = self.block.chunks + self.block.world.chunk_size * self.chunk_idx + c.offset;
+			void* ptr = self.block.chunks + world.chunk_size * self.chunk_idx + c.offset;
 			@body(c.type, ptr);
 		}
 	};
 }
 
-<* Removes component from entity by its type.
-   @param type : "Component type id."
-   @param perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
-   @return "Pointer to the entity." *>
-fn Entity* Entity.remove(&self, typeid type, bool perform = true) {
-	if (try sz idx = component_index(&self.block.world.components, type)) {
-		marker_unset(COMPONENTS_MARKER_SIZE, &self.components, idx);
-		if (perform) archetyping(self);
-	}
-
-	return self;
-}
-
 <* Removes components from entity of all passed types.
-   @require $vaarg.len > 0 : "You must pass at least one component type."
-   @return "Pointer to the entity." *>
-macro Entity* Entity.remove_all(&self, ...) {
+   @param ... : "Component types."
+   @return		"Pointer to the entity." *>
+macro Entity* Entity.remove(&self, ...) {
 	$for var $i = 0; $i < $vaarg.len; $i++:
 		var $Type = $vaarg[$i];
-		self.remove($Type::typeid, false);
+
+		$if $defined($Type):
+			if (try sz idx = component_index(&self.block.world.components, $Type::typeid)) {
+				marker_unset(COMPONENTS_MARKER_SIZE, &self.components, idx);
+			}
+		$endif
 	$endfor
 
 	archetyping(self);
-
+	
 	return self;
-}
-
-<* Checks if the enity has a component.
-   @param $Type : "Component type."
-   @return "True if entity has a component, otherwise - false." *>
-macro bool Entity.has(&self, $Type) {
-	if (try sz idx = component_index(&self.block.world.components, $Type::typeid)) {
-		return marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, idx);
-	}
-
-	return false;
 }
 
 <* Checks if the entity has all components of passed types.
-   @param types : "Component types."
-   @return "True if entity has all components, otherwise - false." *>
-fn bool Entity.has_all(&self, typeid... types) {
-	bool has = true;
-	
-	foreach (type : types) {
-		if (try sz idx = component_index(&self.block.world.components, type)) {
-			has = has && marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, idx);
-		} else {
-			has = false;
-		}
-	}
+   @param ... : "Component types."
+   @return		"True if entity has all components, otherwise - false." *>
+macro bool Entity.has(&self, ...) {
+	$for var $i = 0; $i < $vaarg.len; $i++:
+		var $Type = $vaarg[$i];
 
-	return has;
-}
+		$if $defined($Type):
+			if (try sz idx = component_index(&self.block.world.components, $Type::typeid)) {
+				if (!marker_is_set(COMPONENTS_MARKER_SIZE, &self.components, idx)) return false;
+			} else {
+				return false;
+			}
+		$endif
+	$endfor
 
-<* Tags entity with specified tag type.
-   @param type : "Tag type id."
-   @param perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
-   @return "Pointer to the entity." *>
-fn Entity* Entity.tag(&self, typeid type, bool perform = true) {
-	if (try sz idx = tag_index(&self.block.world.tags, type)) {
-		marker_set(TAGS_MARKER_SIZE, &self.tags, idx);
-		if (perform) archetyping(self);
-	}
-
-	return self;
+	return true;
 }
 
 <* Tags entity with all passed tag types.
-   @require $vaarg.len > 0 : "You must pass at least one tag type."
-   @return "Pointer to the entity." *>
-macro Entity* Entity.tag_all(&self, ...) {
+   @param ... : "Tag types."
+   @return      "Pointer to the entity." *>
+macro Entity* Entity.tag(&self, ...) {
 	$for var $i = 0; $i < $vaarg.len; $i++:
 		var $Type = $vaarg[$i];
-		self.tag($Type::typeid, false);
+
+		$if $defined($Type):
+			if (try sz idx = tag_index(&self.block.world.tags, $Type::typeid)) {
+				marker_set(TAGS_MARKER_SIZE, &self.tags, idx);
+			}
+		$endif
 	$endfor
 
 	archetyping(self);
-
-	return self;
-}
-
-<* Removes tag from entity.
-   @param type : "Tag type id."
-   @param perform : "Perform archetyping of the entity. You should not change this parameter (inner logic)."
-   @return "Pointer to the entity." *>
-fn Entity* Entity.untag(&self, typeid type, bool perform = true) {
-	if (try sz idx = tag_index(&self.block.world.tags, type)) {
-		marker_unset(TAGS_MARKER_SIZE, &self.tags, idx);
-		if (perform) archetyping(self);
-	}
 
 	return self;
 }
 
 <* Removes tags from entity of all passed types.
-   @require $vaarg.len > 0 : "You must pass at least one tag type."
-   @return "Pointer to the entity." *>
-macro Entity* Entity.untag_all(&self, ...) {
+   @param ... : "Tag types."
+   @return      "Pointer to the entity." *>
+macro Entity* Entity.untag(&self, ...) {
 	$for var $i = 0; $i < $vaarg.len; $i++:
 		var $Type = $vaarg[$i];
-		self.untag($Type::typeid, false);
+
+		$if $defined($Type):
+			if (try sz idx = tag_index(&self.block.world.tags, $Type::typeid)) {
+				marker_unset(TAGS_MARKER_SIZE, &self.tags, idx);
+			}
+		$endif
 	$endfor
 
 	archetyping(self);
@@ -281,50 +204,41 @@ macro Entity* Entity.untag_all(&self, ...) {
 	return self;
 }
 
-<* Checks if the entity is tagged with specified tag type.
-   @param type : "Tag type id."
-   @return "True if the entity has tag, otherwise - false." *>
-fn bool Entity.tagged(&self, typeid type) {
-	if (try sz idx = tag_index(&self.block.world.tags, type)) {
-		return marker_is_set(TAGS_MARKER_SIZE, &self.tags, idx);
-	} else {
-		return false;
-	}
-}
-
 <* Checks if the entity is tagged with all passed tag types.
-   @param types : "Tag types."
-   @return "True if entity is tagged with all types, otherwise - false." *>
-fn bool Entity.tagged_all(&self, typeid... types) {
-	bool tagged = true;
-	
-	foreach (type : types) {
-		if (try sz idx = tag_index(&self.block.world.tags, type)) {
-			tagged = tagged && marker_is_set(TAGS_MARKER_SIZE, &self.tags, idx);
-		} else {
-			tagged = false;
-		}
-	}
+   @param ... : "Tag types."
+   @return      "True if entity is tagged with all types, otherwise - false." *>
+macro bool Entity.tagged(&self, ...) {
+	$for var $i = 0; $i < $vaarg.len; $i++:
+		var $Type = $vaarg[$i];
 
-	return tagged;
+		$if $defined($Type):
+			if (try sz idx = tag_index(&self.block.world.tags, $Type::typeid)) {
+				if (!marker_is_set(TAGS_MARKER_SIZE, &self.tags, idx)) return false;
+			} else {
+				return false;
+			}
+		$endif
+	$endfor
+
+	return true;
 }
 
 <* Despawns entity. *>
 fn void Entity.despawn(&self) @inline {
-	self.block.world.despawn(self);
+	despawn_entity(self.block.world, self);
 }
 
 <* Checks if the entity has been deleted.
    @return "True if entity is deleted, otherwise - false." *>
-fn bool Entity.deleted(&self) @inline => self.state & ElementState.DELETED != 0;
+fn bool Entity.deleted(&self) @inline => self.state & DELETED != 0;
 
 <* Checks if the entity is deferred for despawning at the perform stage.
    @return "True if entity will be despawned, otherwise - false." *>
-fn bool Entity.despawning(&self) @inline => self.state & ElementState.DESPAWNING != 0;
+fn bool Entity.despawning(&self) @inline => self.state & DESPAWNING != 0;
 
 <* Checks if the entity is deferred for archetyping at the perform stage.
    @return "True if entity will be archetyped, otherwise - false." *>
-fn bool Entity.archetyping(&self) @inline => self.state & ElementState.ARCHETYPING != 0;
+fn bool Entity.archetyping(&self) @inline => self.state & ARCHETYPING != 0;
 
 <* Checks if the entity belongs to dynamic lifetime block.
    @return "True if entity is dynamic, otherwise - false." *>
@@ -342,9 +256,9 @@ fn void archetyping(Entity* entity) @private {
 	if (world.approach != ARCHETYPE) return;
 
 	if (world.running && !world.performing) {
-		if (entity.state & ElementState.ARCHETYPING == 0) {
+		if (entity.state & ARCHETYPING == 0) {
 			world.deferred.archetyping.push(entity);
-			entity.state |= ElementState.ARCHETYPING;
+			entity.state |= ARCHETYPING;
 		}
 
 		return;
@@ -352,11 +266,12 @@ fn void archetyping(Entity* entity) @private {
 
 	archetype_remove(entity);
 
-	/* If entity has components or tags, bind archetype to it. */
+	/* If entity has components, or tags, or relations then bind archetype to it. */
 	if (marker_is_any_set(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &entity.components) ||
-		marker_is_any_set(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &entity.tags)) {
+		marker_is_any_set(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &entity.tags) ||
+		marker_is_any_set(MAX_RELATIONS_COUNT, RELATIONS_MARKER_SIZE, &entity.relations)) {
 		/* Find appropriate archetype or new one. */
-		Archetype* archetype = get_archetype(world, &entity.components, &entity.tags);
+		Archetype* archetype = get_archetype(world, &entity.components, &entity.tags, &entity.relations);
 
 		entity.archetype = archetype;
 		entity.arch_idx = archetype.entities.len();

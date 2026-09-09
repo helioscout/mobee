@@ -83,7 +83,7 @@ fn Entity* block_insert(Block* block) @private {
 fn void block_delete(Block* block, sz idx) @private @inline {
 	switch (block.lifetime) {
 		case DYNAMIC: block.deleted.push(idx);
-		case STATIC:  abort("Static entities can't be deleted.");
+		case STATIC:  abort(ERR_STATIC_ENTITY_DELETION);
 	}
 }
 

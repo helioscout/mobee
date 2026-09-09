@@ -1,6 +1,7 @@
 module mobee;
 
 import std::io;
+import std::core::mem::allocators;
 
 <* World type, main container of the sapce. The world is built of blocks. *>
 struct World {
@@ -34,6 +35,8 @@ struct World {
 	Deferred deferred;
 	<* Components + Relations chunk size in bytes. *>
 	sz chunk_size;
+	<* Arena allocator for dynamic arrays of relations targets. *>
+	DynamicArenaAllocator arena;
 }
 
 <* Gets world blocks count for specific (default: all) lifetimes.
@@ -82,6 +85,8 @@ fn void world_init(World* world) @private {
 	world.register(RELATION, ChildOf);
 	world.register(RELATION, ParentOf);
 	world.register(RELATION, RelationOf);
+
+	world.arena.init(mem, ARENA_PAGE_SIZE);
 }
 
 <* Registers element type for the world.
@@ -128,15 +133,20 @@ macro World* World.register(&self, Element element, $Type) {
 	return self;
 }
 
-<* Mounts new system to the world.
+<* Mownts new system to the world.
    @param name       : "Name of the system. It must be unique. Used for getting the system from the world." 
+   @param query      : "Components, tags and relations list that should match while the system query. You can also separate types using `components`, `tags` and `relations` params of this proc. Using both approaches simultaneously, or crossing or duplicating types in different params is safe."
    @param components : "Components list that should match while the system query."
    @param tags       : "Tags list that should match while the system query."
+   @param relations  : "Relations list that should match while the system query."
+   @param without    : "Components, tags and relations list that should not be added to the entity, so system query will match entities only without them, even if these components, tags or relations were included into main query list."
    @param phase      : "System running phase, order in the pipeline. By default equals UPDATE."
    @param lifetime   : "Entities lifetime flag to optimize queries and do not process lifetimes that you want to avoid for current system. Includes all lifetimes (0b00000011) by default. Not used in ARCHETYPE approach."
+   @param callback   : "Callback function that will be invoked each step of the world progress."
    @return             "Pointer to the world for chain calls." *>
-fn World* World.mount(&self, String name = "", typeid[] components = {}, typeid[] tags = {},
-	Phase phase = UPDATE, char lifetime = 0b00000011, SystemCallback callback = null) {
+fn World* World.mount(&self, String name = "", typeid[] query = {}, typeid[] components = {}, typeid[] tags = {},
+	typeid[] relations = {}, typeid[] without = {}, Phase phase = UPDATE, char lifetime = 0b00000011,
+	SystemCallback callback = null) {
 	if (name && self.has_system(name)) abort(ERR_SYSTEM_ALREADY_MOUNTED);
 	if (!name && phase == MANUAL) abort(ERR_MANUAL_SYSTEM_NAME_NOT_PROVIDED);
 	if (callback == null) abort(ERR_CALLBACK_NOT_PROVIDED);
@@ -146,40 +156,97 @@ fn World* World.mount(&self, String name = "", typeid[] components = {}, typeid[
 		.name = name, .callback = callback, .state = ENABLED,
 		.lifetime = lifetime == 0 ? 0b00000011 : lifetime, .phase = phase });
 
-	if (components.len == 0 && tags.len == 0) {
-		system.state |= ElementState.IS_TASK;
-	} else {
-		if (components.len > 0) {
-			foreach (type : components) {
-				if (try sz idx = component_index(&self.components, type)) {
-					marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
-				}
+	@pool() {
+		Types _components;
+		Types _tags;
+		Types _relations;
+
+		_components.init(tmem, MAX_COMPONENTS_COUNT);
+		_tags.init(tmem, MAX_TAGS_COUNT);
+		_relations.init(tmem, MAX_RELATIONS_COUNT);
+
+		_components.push_all(components);
+		_tags.push_all(tags);
+		_relations.push_all(relations);
+		
+		if (query.len > 0) {
+			foreach (type : query) {
+				if (components_has(&self.components, type))    { _components.push(type); }
+				else if (tags_has(&self.tags, type))		   { _tags.push(type);		 }
+				else if (relations_has(&self.relations, type)) { _relations.push(type);  }
 			}
-
-			system.state |= ElementState.HAS_COMPONENTS;
 		}
-
-		if (tags.len > 0) {
-			foreach (type : tags) {
-				if (try sz idx = tag_index(&self.tags, type)) {
-					marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
-				}
-			}
-
-			system.state |= ElementState.HAS_TAGS;
-		}
-	}
-
-	if (self.approach == ITERATION) system.entities.init(mem);
-
-	switch (phase) {
-		case START: self.schedule.start.push(system);
-		case PRE_UPDATE: self.schedule.pre_update.push(system);
-		case UPDATE: self.schedule.update.push(system);
-		case POST_UPDATE: self.schedule.post_update.push(system);
-	}
 	
-	self.systems.push(system);
+		if (_components.len() == 0 && _tags.len() == 0 && _relations.len() == 0 && without.len == 0) {
+			/* Task is a system without query, it will just run with nil entities list. */
+			system.state |= IS_TASK;
+		} else {
+			/* Initialize bits in the new system components marker. */
+			if (_components.len() > 0) {
+				foreach (type : _components) {
+					if (try sz idx = component_index(&self.components, type)) {
+						marker_set(COMPONENTS_MARKER_SIZE, &system.components, idx);
+					}
+				}
+
+				system.state |= HAS_COMPONENTS;
+			}
+
+			/* Initialize bits in the new system tags marker. */
+			if (_tags.len() > 0) {
+				foreach (type : _tags) {
+					if (try sz idx = tag_index(&self.tags, type)) {
+						marker_set(TAGS_MARKER_SIZE, &system.tags, idx);
+					}
+				}
+
+				system.state |= HAS_TAGS;
+			}
+
+			/* Initialize bits in the new system relations marker. */
+			if (_relations.len() > 0) {
+				foreach (type : _relations) {
+					if (try sz idx = relation_index(&self.relations, type)) {
+						marker_set(RELATIONS_MARKER_SIZE, &system.relations, idx);
+					}
+				}
+
+				system.state |= HAS_RELATIONS;
+			}
+
+			if (without.len > 0) {
+				bool has_components, has_tags, has_relations;
+
+				foreach (type : without) {
+					if (try sz idx = component_index(&self.components, type)) {
+						marker_set(COMPONENTS_MARKER_SIZE, &system.without_components, idx);
+						has_components = true;
+					} else if (try sz idx = tag_index(&self.tags, type)) {
+						marker_set(TAGS_MARKER_SIZE, &system.without_tags, idx);
+						has_tags = true;
+					} else if (try sz idx = relation_index(&self.relations, type)) {
+						marker_set(RELATIONS_MARKER_SIZE, &system.without_relations, idx);
+						has_relations = true;
+					}
+				}
+
+				if (has_components) system.state |= HAS_WITHOUT_COMPONENTS;
+				if (has_tags)		system.state |= HAS_WITHOUT_TAGS;
+				if (has_relations)  system.state |= HAS_WITHOUT_RELATIONS;
+			}
+		}
+
+		if (self.approach == ITERATION) system.entities.init(mem);
+
+		switch (phase) {
+			case START:		  self.schedule.start.push(system);
+			case PRE_UPDATE:  self.schedule.pre_update.push(system);
+			case UPDATE:	  self.schedule.update.push(system);
+			case POST_UPDATE: self.schedule.post_update.push(system);
+		}
+	
+		self.systems.push(system);
+	};
 	
 	return self;
 }
@@ -205,7 +272,7 @@ fn World* World.unmount(&self, String name) {
 }
 
 <* Runs the world, but at first constructs all neccessary data from registered elements.
-   World must has at least one registered component, but can has no tags, resources.
+   World must has at least one registered component, but can has no tags, resources, or relations.
    @return "Pointer to the world for chain calls." *>
 fn World* World.run(&self) {
 	if (self.components.count == 0) abort(ERR_WORLD_HAS_NO_COMPONENTS);
@@ -236,7 +303,7 @@ fn World* World.run(&self) {
    @param lifetime : "Entity lifetime (default: Lifetime.DYNAMIC)."
    @return           "Pointer to new entity." *>
 fn Entity* World.spawn(&self, Lifetime lifetime = DYNAMIC) {
-	if (!self.running) abort("Run the world first.");
+	if (!self.running) abort(ERR_WORLD_IS_NOT_RUNNING);
 
 	Entity* entity = block_insert(get_sparse_block(self, lifetime));
 
@@ -244,20 +311,32 @@ fn Entity* World.spawn(&self, Lifetime lifetime = DYNAMIC) {
 }
 
 <* Despawns entity from the world.
+   @param world  : "Pointer to the world."
    @param entity : "Reference to the entity." *>
-fn void World.despawn(&self, Entity* entity) {
+fn void despawn_entity(World* world, Entity* entity) @private {
 	if (entity.deleted()) return;
 	
-	if (self.approach == ARCHETYPE && self.running && !self.performing) {
+	if (world.approach == ARCHETYPE && world.running && !world.performing) {
 		/* Prevent pushing to list several times. */
 		if (!entity.despawning()) {
-			self.deferred.despawning.push(entity);
-			entity.state |= ElementState.DESPAWNING;
+			world.deferred.despawning.push(entity);
+			entity.state |= DESPAWNING;
 		}
 	} else {
 		block_delete(entity.block, entity.chunk_idx);
-		entity.state |= ElementState.DELETED;
+		entity.state |= DELETED;
 	}
+}
+
+<* Despawns entities from the world.
+   @param entities : "References to the entities."
+   @return "Pointer to the world for chain calls." *>
+fn World* World.despawn(&self, Entity*... entities) {
+	foreach (entity : entities) {
+		despawn_entity(self, entity);
+	}
+
+	return self;
 }
 
 <* Creates new empty block in the world.
@@ -346,7 +425,7 @@ macro World* set_resource(World* world, $Type, #init) @private @safemacro {
 
 <* Step through each entity reference in the world.
    @param lifetime : "Entities lifetime flag." *>
-macro World.@each(&self, char lifetime = 0b00000011; @body(entity, lifetime)) {
+macro World.each(&self, char lifetime = 0b00000011; @body(entity, lifetime)) @safemacro {
 	if (lifetime & Lifetime.DYNAMIC) {
 		foreach (block : self.dynamics) {
 			EntitiesIterator iter = block_iter();
@@ -372,7 +451,7 @@ macro World.@each(&self, char lifetime = 0b00000011; @body(entity, lifetime)) {
    @param name : "System name."
    @return       "True if system exists, otherwise - false." *>
 fn bool World.has_system(&self, String name) {
-	if (name == "") abort("System name can't be empty.");
+	if (name == "") abort(ERR_SYSTEM_NAME_NOT_PROVIDED);
 
 	foreach (system : self.systems) {
 		if (system.name == name) return true;
@@ -386,7 +465,7 @@ fn bool World.has_system(&self, String name) {
    @return       "Pointer to the system."
    @return? NOT_FOUND : "System was not found (mounted)." *>
 fn System*? World.get_system(&self, String name) {
-	if (name == "") abort("System name can't be empty.");
+	if (name == "") abort(ERR_SYSTEM_NAME_NOT_PROVIDED);
 
 	foreach (system : self.systems) {
 		if (system.name == name) return system;
@@ -401,7 +480,7 @@ fn System*? World.get_system(&self, String name) {
    @return        "System index."
    @return? NOT_FOUND : "System was not found (mounted)." *>
 fn sz? get_system_index(World* world, String name) @private {
-	if (name == "") abort("System name can't be empty.");
+	if (name == "") abort(ERR_SYSTEM_NAME_NOT_PROVIDED);
 
 	foreach (idx, system : world.systems) {
 		if (system.name == name) return idx;
@@ -431,13 +510,29 @@ fn void World.progress(&self) {
 			if (!is_task(system)) system.entities.clear();
 		}
 
-		self.@each(; Entity* entity, Lifetime lifetime) {
+		self.each(; Entity* entity, Lifetime lifetime) {
 			foreach (system : self.systems) {
 				if (system.enabled() && !is_task(system) && system.lifetime & lifetime) {
 					if ((system_has_no_tags(system) ||
 						 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &entity.tags, &system.tags)) &&
+						
 						(system_has_no_components(system) ||
-						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &entity.components, &system.components))) {
+						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &entity.components, &system.components)) &&
+
+						(system_has_no_relations(system) ||
+						 marker_is_subset(MAX_RELATIONS_COUNT, RELATIONS_MARKER_SIZE, &entity.relations, &system.relations)) &&
+
+						(system_has_no_without_tags(system) ||
+						 marker_is_all_unset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE,
+							&&marker_and(TAGS_MARKER_SIZE, &entity.tags, &system.without_tags))) &&
+
+						(system_has_no_without_components(system) ||
+						 marker_is_all_unset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE,
+							&&marker_and(COMPONENTS_MARKER_SIZE, &entity.components, &system.without_components))) &&
+
+						(system_has_no_without_relations(system) ||
+						 marker_is_all_unset(MAX_RELATIONS_COUNT, RELATIONS_MARKER_SIZE,
+							&&marker_and(RELATIONS_MARKER_SIZE, &entity.relations, &system.without_relations)))) {
 						/* Add pointer to entity into system collection of entities for current system call. */
 						system.entities.push(entity);
 					}
@@ -469,8 +564,24 @@ fn void step_archetype(World* world, Systems* systems) @local @inline {
 					if (archetype.entities.len() > 0 &&
 						(system_has_no_tags(system) ||
 						 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, &system.tags)) &&
+
 						(system_has_no_components(system) ||
-						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, &system.components))) {
+						 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, &system.components)) &&
+
+						(system_has_no_relations(system) ||
+						 marker_is_subset(MAX_RELATIONS_COUNT, RELATIONS_MARKER_SIZE, &archetype.relations, &system.relations)) &&
+
+						(system_has_no_without_tags(system) ||
+						 marker_is_all_unset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE,
+							&&marker_and(TAGS_MARKER_SIZE, &archetype.tags, &system.without_tags))) &&
+
+						(system_has_no_without_components(system) ||
+						 marker_is_all_unset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE,
+							&&marker_and(COMPONENTS_MARKER_SIZE, &archetype.components, &system.without_components))) &&
+
+						(system_has_no_without_relations(system) ||
+						 marker_is_all_unset(MAX_RELATIONS_COUNT, RELATIONS_MARKER_SIZE,
+							&&marker_and(RELATIONS_MARKER_SIZE, &archetype.relations, &system.without_relations)))) {
 					   	/* Call system callback for matched archetype. */
 						system.callback(&archetype.entities, world);
 					}
@@ -497,7 +608,7 @@ fn void World.perform(&self) {
 
 	/* Perform deferred despawning. */
 	foreach (entity : self.deferred.despawning) {
-		self.despawn(entity);
+		despawn_entity(self, entity);
 		archetype_remove(entity);
 	}
 
@@ -507,7 +618,7 @@ fn void World.perform(&self) {
 	foreach (entity : self.deferred.archetyping) {
 		if (entity.archetyping() && !entity.deleted()) {
 			archetyping(entity);
-			entity.state &= ~ElementState.ARCHETYPING;
+			entity.state &= ~ARCHETYPING;
 		}
 	}
 
@@ -523,15 +634,99 @@ fn void World.perform(&self) {
 	self.performing = false;
 }
 
+<* Execute system by its name.
+   @param name : "System name."
+   @return       "Pointer to the world for chain calls." *>
+fn World* World.execute(&self, String name) {
+	if (try System* system = self.get_system(name) && system.enabled()) {
+		if (is_task(system)) {
+			system.callback(null, self);
+		} else {
+			foreach (archetype : self.archetypes) {
+				if (archetype.entities.len() > 0 &&
+					(system_has_no_tags(system) ||
+					 marker_is_subset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, &system.tags)) &&
+
+					(system_has_no_components(system) ||
+					 marker_is_subset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, &system.components)) &&
+
+					(system_has_no_relations(system) ||
+					 marker_is_subset(MAX_RELATIONS_COUNT, RELATIONS_MARKER_SIZE, &archetype.relations, &system.relations)) &&
+
+					(system_has_no_without_tags(system) ||
+					 marker_is_all_unset(MAX_TAGS_COUNT, TAGS_MARKER_SIZE,
+						&&marker_and(TAGS_MARKER_SIZE, &archetype.tags, &system.without_tags))) &&
+
+					(system_has_no_without_components(system) ||
+					 marker_is_all_unset(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE,
+						&&marker_and(COMPONENTS_MARKER_SIZE, &archetype.components, &system.without_components))) &&
+
+					(system_has_no_without_relations(system) ||
+					 marker_is_all_unset(MAX_RELATIONS_COUNT, RELATIONS_MARKER_SIZE,
+						&&marker_and(RELATIONS_MARKER_SIZE, &archetype.relations, &system.without_relations)))) {
+				   	/* Call system callback for matched archetype. */
+					system.callback(&archetype.entities, self);
+				}
+			}
+		}
+	}
+
+	return self;
+}
+
+<* Checks if systems are enabled.
+   @param names : "System names."
+   @return        "True if all systems are enabled, otherwise - false." *>
+fn bool World.enabled(&self, String... names) @inline {
+	foreach (name : names) {
+		if (try System* system = self.get_system(name)) {
+			if (!system.enabled()) return false;
+		} else {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+<* Enables systems.
+   @param names : "System names."
+   @return        "Pointer to the world for chain calls." *>
+fn World* World.enable(&self, String... names) @inline {
+	foreach (name : names) {
+		if (try System* system = self.get_system(name)) {
+			system.enable();
+		}
+	}
+
+	return self;
+}
+
+<* Disables one or several systems.
+   @param names : "System names."
+   @return        "Pointer to the world for chain calls." *>
+fn World* World.disable(&self, String... names) @inline {
+	foreach (name : names) {
+		if (try System* system = self.get_system(name)) {
+			system.disable();
+		}
+	}
+
+	return self;
+}
+
 <* Creates new archetype.
    @param world      : "Pointer to the world."
    @param components : "Pointer to components bitset."
-   @param tags       : "Pointer to tags bitset." *>
+   @param tags       : "Pointer to tags bitset."
+   @param relations  : "Pointer to relations bitset." *>
 fn Archetype* new_archetype(World* world, sz[COMPONENTS_MARKER_SIZE]* components,
-	sz[TAGS_MARKER_SIZE]* tags) @local {
-	Archetype* archetype = mem::new(Archetype);
-	archetype.components = marker_clone(COMPONENTS_MARKER_SIZE, components);
-	archetype.tags = marker_clone(TAGS_MARKER_SIZE, tags);
+	sz[TAGS_MARKER_SIZE]* tags, sz[RELATIONS_MARKER_SIZE]* relations) @local {
+	Archetype* archetype = mem::new(Archetype, {
+		.components = marker_clone(COMPONENTS_MARKER_SIZE, components),
+		.tags =		  marker_clone(TAGS_MARKER_SIZE, tags),
+		.relations =  marker_clone(RELATIONS_MARKER_SIZE, relations)
+	});
 
 	archetype_init(archetype);
 	world.archetypes.push(archetype);
@@ -543,17 +738,19 @@ fn Archetype* new_archetype(World* world, sz[COMPONENTS_MARKER_SIZE]* components
    @param world      : "Pointer to the world."
    @param components : "Pointer to components bitset."
    @param tags       : "Pointer to tags bitset."
+   @param relations  : "Pointer to relations bitset."
    @return             "Pointer to archetype." *>
 fn Archetype* get_archetype(World* world, sz[COMPONENTS_MARKER_SIZE]* components,
-	sz[TAGS_MARKER_SIZE]* tags) @private {
+	sz[TAGS_MARKER_SIZE]* tags, sz[RELATIONS_MARKER_SIZE]* relations) @private {
 	foreach (archetype : world.archetypes) {
 		if (marker_equals(MAX_COMPONENTS_COUNT, COMPONENTS_MARKER_SIZE, &archetype.components, components) &&
-			marker_equals(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, tags)) {
+			marker_equals(MAX_TAGS_COUNT, TAGS_MARKER_SIZE, &archetype.tags, tags) &&
+			marker_equals(MAX_RELATIONS_COUNT, RELATIONS_MARKER_SIZE, &archetype.relations, relations)) {
 			return archetype;
 		}
 	}
 
-	return new_archetype(world, components, tags);
+	return new_archetype(world, components, tags, relations);
 }
 
 <* Gets the reference to block that is available to insert new entities,
@@ -636,4 +833,6 @@ fn void free_world(World* world) @private {
 	world.deferred.archetyping.free();
 
 	free(world.resources.storage);
+
+	world.arena.free();
 }

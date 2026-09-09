@@ -13,6 +13,8 @@ const sz STATIC_CHUNK_SIZE @private  = 300;
 <* Bytes buffer size used for reading/writing components.
    Must be not less that total size of all registered components. *>
 const sz STACK_BUFFER_SIZE = 16 * 1024;
+<* Dynamic arena allocator page size. *>
+const sz ARENA_PAGE_SIZE = 1024 * 1024;
 
 <* Maximum components count available for adding to entity. *>
 const sz MAX_COMPONENTS_COUNT = 127;
@@ -21,7 +23,7 @@ const sz MAX_TAGS_COUNT = 127;
 <* Maximum resources count available for adding to the world. *>
 const sz MAX_RESOURCES_COUNT = 127;
 <* Maximum relations count available for adding to entity. *>
-const sz MAX_RELATIONS_COUNT = 64;
+const sz MAX_RELATIONS_COUNT = 127;
 
 <* Count of bits in one marker word (element of marker array). *>
 const sz MARKER_BITS_COUNT @private = sz::size * 8;
@@ -52,6 +54,9 @@ alias Systems = List { System* };
 
 <* Archetypes collection of the world. *>
 alias Archetypes = List { Archetype* };
+
+<* Types collection for different purposes. *>
+alias Types = List { typeid };
 
 <* Entities/blocks lifetime. *>
 constdef Lifetime : inline char {
@@ -235,3 +240,5 @@ const String ERR_RESOURCE_ALREADY_REGISTERED @private = "Resource already regist
 const String ERR_MAX_RESOURCES_COUNT @private = "The maximum count of resources has been reached.";
 const String ERR_RELATION_ALREADY_REGISTERED @private = "Relation already registered.";
 const String ERR_MAX_RELATIONS_COUNT @private = "The maximum count of relations has been reached.";
+const String ERR_STATIC_ENTITY_DELETION @private = "Static entities can't be deleted.";
+const String ERR_SYSTEM_NAME_NOT_PROVIDED @private = "System name can't be empty.";

@@ -30,6 +30,22 @@ struct Mutation (Printable) {
 
 typedef Velocity = float[1];
 
+struct Component1 {
+	int a;
+}
+
+struct Component2 {
+	float b;
+}
+
+struct Joint {
+	char type;
+	float[16] data;
+}
+
+typedef Relation1 = char;
+typedef Relation2 = char;
+
 struct Resource1 (Printable) {
 	bool enabled;
 }
@@ -58,6 +74,8 @@ typedef VecType = float[<2>];
 
 typedef Tag1 = int;
 typedef Tag2 = int;
+typedef Tag3 = int;
+typedef Tag4 = int;
 
 const sz MAX_COUNT = 130;
 const sz BITS_COUNT = sz::size * 8;
@@ -251,6 +269,11 @@ fn void system4(Entities* entities, World* world) {
 	io::printn("-- manual system...");
 }
 
+fn void system5(Entities* entities, World* world) {
+	foreach (entity : entities) {
+	}
+}
+
 fn void main() {
 // mem::@report_heap_allocs_in_scope() {
 	ecs::init();
@@ -276,13 +299,18 @@ fn void main() {
 	io::printn("--- world is running ---");
 
 	 world.mount(phase: START, callback: &startup)
-		  .mount(tags: { Tag1 }, callback: &system1)
-		  .mount(tags: { Tag2 }, callback: &system1)
-		  .mount(components: { Position, Center }, callback: &system3)
-		  .mount(components: { Position, Center }, tags: { Tag1, Tag2 }, callback: &system3)
-		  .mount(name: "s1", components: { Position, Center }, tags: { Tag1 }, callback: &system2)
-		  .mount(name: "s2", components: { Position, Center }, tags: { Tag2 }, callback: &system2)
-		  .mount(name: "m_sys", phase: MANUAL, callback: &system4);
+		  .mount(tags: { Tag1 }, without: { Component1, Component2, Tag3, Tag4 }, callback: &system1)
+		  .mount(tags: { Tag2 }, without: { Component1, Component2, Tag3, Tag4 }, callback: &system1)
+		  .mount(components: { Position, Center }, without: { Component1, Component2, Tag3, Tag4 }, callback: &system3)
+		  .mount(query: { Position, Center, Tag1, Tag2 }, components: { Position, Center },
+				 tags: { Tag1, Tag2 }, without: { Component1, Component2, Tag3, Tag4 }, callback: &system3)
+		  .mount(tags: { Tag2 }, relations: { Joint }, without: { Component1, Component2, Tag3, Tag4 },
+				 callback: &system5)
+		  .mount(name: "s1", query: { Position, Center, Tag1 }, without: { Component1, Component2, Tag3, Tag4 },
+				 callback: &system2)
+		  .mount(name: "s2", components: { Position, Center }, tags: { Tag2 },
+				 without: { Component1, Component2, Tag3, Tag4 }, callback: &system2)
+		  .mount(name: "m_sys", query: { Joint, ParentOf }, phase: MANUAL, callback: &system4);
 		
 	// Entities entities;
 	// entities.init();
@@ -332,6 +360,11 @@ fn void main() {
 	// marker_print(marker1);
 	// marker_print(marker2);
 
+	world.disable("s1", "s2");
+	io::printfn("system enabled: %s", world.enabled("s1", "s2"));
+	world.enable("s1", "s2");
+	io::printfn("system enabled: %s", world.enabled("s1", "s2"));
+
 	io::printn("--- adding components ---");
 
 	Entity* e1 = world.spawn()
@@ -341,7 +374,8 @@ fn void main() {
 			 Velocity, { 133 },
 			 Rotation, { .angle = 12 },
 			 VecType,  { 20, 40 },
-			 Mutation, { .skin = 22 });
+			 Mutation, { .skin = 22 })
+		.tag(Tag1, Tag2);
 
 	e1.get_7(Position, Center, Health, Velocity, Rotation, VecType, Mutation; pos, c, h, v, r, vec, m) {
 		io::printfn("e1 pos: %s", pos);
@@ -352,6 +386,12 @@ fn void main() {
 		io::printfn("e1 vec: %s", vec);
 		io::printfn("e1 mutation: %s", m);
 	};
+
+	// e1.untag(Tag1, Tag2);
+
+	io::printfn("e1 tagged with Tag1: %s", e1.tagged(Tag1));
+	io::printfn("e1 tagged with Tag2: %s", e1.tagged(Tag2));
+	io::printfn("e1 tagged with Tag1 and Tag2: %s", e1.tagged(Tag1, Tag2));
 	
 	io::printn("--- mutating components ---");
 
@@ -461,7 +501,7 @@ fn void main() {
 	duration = clock.mark();
 	io::printfn("-- ellapsed: %s", duration);
 
-	world.@each(; Entity* entity, Lifetime lifetime) {
+	world.each(; Entity* entity, Lifetime lifetime) {
 		// if (try Position* p = entity.get(Position)) {
 		// 	io::printn(*p);
 		// }
@@ -505,9 +545,9 @@ fn void main() {
 	world.spawn(STATIC);
 
 	io::printn("---------");
-	io::printn(e.has(Position));
-	io::printn(e.has(Center));
-	io::printn(e.has(VecType));
+	io::printfn("e has Position: %s", e.has(Position));
+	io::printfn("e has Center: %s", e.has(Center));
+	io::printfn("e has Position, Center, VecType: %s", e.has(Position, Center, VecType));
 	io::printn("---------");
 
 	if (try Position* p = e.get_mut(Position) && try Center* c = e.get_mut(Center)) {
@@ -531,72 +571,31 @@ fn void main() {
 		io::printn("Not found");
 	}
 
-	io::printn("---------");
+	io::printn("---- each -----");
 
-	@pool() {
-		foreach (component : e.tget_all_mut(Position, Center, VecType, int)) {
-			switch (component.type) {
-				case Position:
-					io::print("Position: ");
-					io::printn(component);
-				case Center:
-					io::print("Center: ");
-					io::printn(component);
-			}
-		}
-	};
-
-	io::printn("---- all -----");
-
-	@pool() {
-		foreach (component : ed.tall_mut()) {
-			switch (component.type) {
-				case Position:
-					io::print("Position: ");
-					io::printn(component);
-				case Center:
-					io::print("Center: ");
-					io::printn(component);
-			}
-		}
-	};
-
-	io::printn("---- @each -----");
-
-	es.@each(; typeid type, void* c) {
+	es.each(; typeid type, void* c) {
 		switch (type) {
-			case Position:
-				io::print("Position: ");
-				io::printn((Position*)c);
-			case Center:
-				io::print("Center: ");
-				io::printn((Center*)c);
+			case Position: io::printfn("Position: %s", (Position*)c);
+			case Center:   io::printfn("Center: %s", (Center*)c);
 		}
 	};
 
-	// es.remove_all(Position, Center);
+	io::printn("---- removing components ----");
+	es.remove(Position, Center);
 
-	// es.@each(; typeid type, void* c) {
-	// 	switch (type) {
-	// 		case Position:
-	// 			io::print("Position: ");
-	// 			io::printn((Position*)c);
-	// 		case Center:
-	// 			io::print("Center: ");
-	// 			io::printn((Center*)c);
-	// 	}
-	// };
-
+	io::printfn("es has Postion: %s", es.has(Position));
+	io::printfn("es has Center: %s", es.has(Center));
+	
 	ed.tag(Tag1);
 
 	io::printfn("Tagged with Tag1: %s", ed.tagged(Tag1));
 	io::printfn("Tagged with Tag2: %s", ed.tagged(Tag2));
 
-	es.tag_all(Tag1, Tag2);
-	io::printn(es.tagged_all(Tag1, Tag2));
+	es.tag(Tag1, Tag2);
+	io::printn(es.tagged(Tag1, Tag2));
 	
-	es.untag_all(Tag2, Tag1);
-	io::printn(es.tagged_all(Tag1, Tag2));
+	es.untag(Tag2, Tag1);
+	io::printn(es.tagged(Tag1, Tag2));
 
 	io::printfn("-- spawning dynamicss ( %d ) --", 100000 + 3);
 	clock = clock::now();
@@ -661,7 +660,7 @@ fn void main() {
 
 	sz count;
 	
-	world.@each(; Entity* entity, Lifetime lifetime) {
+	world.each(; Entity* entity, Lifetime lifetime) {
 		if (try Position* p = entity.get_mut(Position)) {
 		}
 		count++;
@@ -743,8 +742,7 @@ fn void main() {
 	// duration = clock.mark();
 	// io::printf("\nEllapsed: %s", duration);
 
-	world.despawn(e);
-	world.despawn(ed);
+	world.despawn(e, ed);
 
 	world.perform();
 
@@ -772,6 +770,8 @@ fn void main() {
 	io::printfn("-- ellapsed: %s", duration);
 
 	// io::printfn("world size: %s\n", @sizeof(*world));
+
+	world.execute("m_sys");
 
 	ecs::destroy();
 

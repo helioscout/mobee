@@ -1,11 +1,14 @@
 module mobee;
 
-<* Archetype for components/tags configuration. *>
+<* Archetype for components/tags/relations configuration. It does not stores components in tables.
+   It is used for processing queries. *>
 struct Archetype {
 	<* Components marker, each set bit specifies that the component exists in the archetype. *>
 	sz[COMPONENTS_MARKER_SIZE] components;
 	<* Tags marker, each set bit specifies that the tag exists in the archetype. *>
 	sz[TAGS_MARKER_SIZE] tags;
+	<* Relations marker, each set bit specifies that the relation exists in the archetype. *>
+	sz[RELATIONS_MARKER_SIZE] relations;
 	<* Entities that belongs to the archetype. Each entity clould be included only into one archetype. *>
 	Entities entities;
 }

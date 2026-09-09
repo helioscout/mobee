@@ -41,36 +41,51 @@ struct System {
 
 <* Checks if the system is enabled.
    @return "True if system is enabled, otherwise - false." *>
-fn bool System.enabled(&self) @inline => self.state & ElementState.ENABLED != 0;
+fn bool System.enabled(&self) @inline => self.state & ENABLED != 0;
 
 <* Checks if the system has no components.
    @param system : "Pointer to the system."
    @return "True if system has no components, otherwise - false." *>
-fn bool system_has_no_components(System* system) @private @inline => system.state & ElementState.HAS_COMPONENTS == 0;
+fn bool system_has_no_components(System* system) @private @inline => system.state & HAS_COMPONENTS == 0;
 
 <* Checks if the system has no tags.
    @param system : "Pointer to the system."
    @return "True if system has no tags, otherwise - false." *>
-fn bool system_has_no_tags(System* system) @private @inline => system.state & ElementState.HAS_TAGS == 0;
+fn bool system_has_no_tags(System* system) @private @inline => system.state & HAS_TAGS == 0;
 
 <* Checks if the system has no relations.
    @param system : "Pointer to the system."
    @return "True if system has no relations, otherwise - false." *>
-fn bool system_has_no_relations(System* system) @private @inline => system.state & ElementState.HAS_RELATIONS == 0;
+fn bool system_has_no_relations(System* system) @private @inline => system.state & HAS_RELATIONS == 0;
+
+<* Checks if the system has no 'without components'.
+   @param system : "Pointer to the system."
+   @return "True if system has no 'without components', otherwise - false." *>
+fn bool system_has_no_without_components(System* system) @private @inline => system.state & HAS_WITHOUT_COMPONENTS == 0;
+
+<* Checks if the system has no 'without tags'.
+   @param system : "Pointer to the system."
+   @return "True if system has no 'without tags', otherwise - false." *>
+fn bool system_has_no_without_tags(System* system) @private @inline => system.state & HAS_WITHOUT_TAGS == 0;
+
+<* Checks if the system has no 'without relations'.
+   @param system : "Pointer to the system."
+   @return "True if system has no 'without relations', otherwise - false." *>
+fn bool system_has_no_without_relations(System* system) @private @inline => system.state & HAS_WITHOUT_RELATIONS == 0;
 
 <* Checks if the system is a task.
    @param system : "Pointer to the system."
    @return "True if system is a task, otherwise - false." *>
-fn bool is_task(System* system) @private @inline => system.state & ElementState.IS_TASK != 0;
+fn bool is_task(System* system) @private @inline => system.state & IS_TASK != 0;
 
 <* Enables the system. *>
 fn void System.enable(&self) @inline {
-	self.state |= ElementState.ENABLED;
+	self.state |= ENABLED;
 }
 
 <* Disables the system. *>
 fn void System.disable(&self) @inline {
-	self.state &= ~ElementState.ENABLED;
+	self.state &= ~ENABLED;
 }
 
 fn bool System.eq(&self, System other) @operator(==) @inline => self.name == other.name;
