@@ -434,6 +434,28 @@ fn void main() {
 	if (try vec = e1.get(VecType))  { io::printfn("e1 vec: %s", vec); }
 	if (try m = e1.get(Mutation))   { io::printfn("e1 mutation: %s", m); }
 
+	io::printn("--- setting relations ---");
+
+	Entity* e2 = world.spawn();
+	Entity* e3 = world.spawn();
+	Entity* e4 = world.spawn();
+	Entity* e5 = world.spawn();
+
+	// e1.relate(ParentOf, e3);
+	// e1.relate(ParentOf, e2);
+	// e1.relate(ParentOf, e4);
+	e1.parent_of(e2, e4);
+	e3.child_of(e1, e4);
+	
+	io::printfn("e1 is parent of e3: %s", e1.is_parent_of(e3));
+	io::printfn("e1 is parent of e2, e3, e4: %s", e1.is_parent_of(e2, e3, e4));
+	io::printfn("e3 is parent of e4: %s", e3.is_parent_of(e4));
+	io::printfn("e3 is child of e4: %s", e3.is_child_of(e4));
+	io::printfn("e3 is child of e1: %s", e3.is_child_of(e1));
+	io::printfn("e1 is child: %s", e1.is_child());
+	io::printfn("e3 is child: %s", e3.is_child());
+	io::printfn("e4 is parent: %s", e4.is_parent());
+	
 	io::printn("--- setting resources ---");
 
 	world.set(Resource1, { .enabled = true },

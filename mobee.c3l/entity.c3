@@ -223,6 +223,306 @@ macro bool Entity.tagged(&self, ...) {
 	return true;
 }
 
+<* Relate the entity with the target one using relation type and relationship data.
+   It's safe to relate with same target entity several times, in this case relation data
+   will be overwritten with no changes to target entities list.
+   @param $Type  : "Relation type."
+   @param target : "Pointer to relationship target entity."
+   @param #init  : "Relation initialization block (relationship data)."
+   @return         "Pointer to the entity." *>
+macro Entity* Entity.relate(&self, $Type, Entity* target, #init = {}) @safemacro {
+	if (self == target) return self;
+	
+	World* world = self.block.world;
+
+	if (try Relation* r = relations_get(&world.relations, $Type::typeid)) {
+		bool related = marker_is_set(RELATIONS_MARKER_SIZE, &self.relations, r.idx);	/* Already related by Type */
+		bool many    = marker_is_set(RELATIONS_MARKER_SIZE, &self.many, r.idx);			/* to many entities.       */
+		char* chunk_ptr = self.block.chunks + world.chunk_size * self.chunk_idx;
+		char* ptr_target = chunk_ptr + r.target_offset;
+		$Type* ptr_relation = ($Type*)(chunk_ptr + r.offset);
+		/* Store relation value in the chunk (or replace previous one). */
+		*ptr_relation = #init;
+
+		if (related) {
+			/* If already related then target will be a pointer to a list of pointers to entities. */
+			Entities** t = (Entities**)ptr_target;
+
+			if (many) {
+				/* If already has many targets then we just push into existing list,
+				   if the target entity has not been added before. */
+				if (!(*t).contains(target)) (*t).push(target);
+			} else {
+				Entity* existing = *((Entity**)ptr_target);
+				/* If entity was related with current target before, we do nothing. */
+				if (existing == target) return self;
+
+				Entities* entities = alloc::new(&world.arena, Entities, {});
+				entities.init(&world.arena);
+				/* If already related to one entity we copy it's pointer and pointer to target entity
+				   to newly created list and store a pointer to that list in the chunk. */
+				entities.push_all({ existing, target });
+				*t = entities;
+
+				marker_set(RELATIONS_MARKER_SIZE, &self.many, r.idx);
+			}
+		} else {
+			/* If had no relations before we store pointer to target entity in the chunk. */
+			Entity** t = (Entity**)ptr_target;
+			*t = target;
+
+			marker_set(RELATIONS_MARKER_SIZE, &self.relations, r.idx);
+			archetyping(self);
+		}
+
+		$switch $Type:
+			$case ParentOf: if (!target.is_child_of(self))  relate_relative_of(target, self, child_of: true);
+			$case ChildOf:  if (!target.is_parent_of(self)) relate_relative_of(target, self, parent_of: true);
+		$endswitch
+
+		if (r.idx != world.relations.idx_relation_of) relate_relative_of(target, self, relation_of: true);
+	}
+	
+	return self;
+}
+
+<* We require this function to avoid relation macro recursion. *>
+fn void relate_relative_of(Entity* entity, Entity* target,
+	bool child_of = false, bool parent_of = false, bool relation_of = false) @private {
+	World* world = entity.block.world;
+	sz idx @noinit;
+
+	switch {
+		case child_of:    idx = world.relations.idx_child_of;
+		case parent_of:   idx = world.relations.idx_parent_of;
+		case relation_of: idx = world.relations.idx_relation_of;
+	}
+	
+	sz target_offset = world.relations.types[idx].target_offset;
+	sz offset = world.relations.types[idx].offset;
+
+	bool related = marker_is_set(RELATIONS_MARKER_SIZE, &entity.relations, idx);
+	bool many    = marker_is_set(RELATIONS_MARKER_SIZE, &entity.many, idx);
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
+	char* ptr_target = chunk_ptr + target_offset;
+
+	/* Store default relation value in the chunk (will replace previous one). */
+	switch {
+		case child_of:
+			ChildOf* ptr_relation = (ChildOf*)(chunk_ptr + offset);
+			*ptr_relation = {};
+		case parent_of:
+			ParentOf* ptr_relation = (ParentOf*)(chunk_ptr + offset);
+			*ptr_relation = {};
+		case relation_of:
+			RelationOf* ptr_relation = (RelationOf*)(chunk_ptr + offset);
+			*ptr_relation = {};
+	}
+
+	if (related) {
+		/* If already related then target will be a pointer to a list of pointers to entities. */
+		Entities** t = (Entities**)ptr_target;
+
+		if (many) {
+			/* If already has many targets then we just push into existing list,
+			   if the target entity has not been added before. */
+			if (!(*t).contains(target)) (*t).push(target);
+		} else {
+			Entity* existing = *((Entity**)ptr_target);
+			/* If entity was related with current target before, we do nothing. */
+			if (existing == target) return;
+
+			Entities* entities = alloc::new(&world.arena, Entities, {});
+			entities.init(&world.arena);
+			/* If already related to one entity we copy it's pointer and pointer to target entity
+			   to newly created list and store a pointer to that list in the chunk. */
+			entities.push_all({ existing, target });
+			*t = entities;
+
+			marker_set(RELATIONS_MARKER_SIZE, &entity.many, idx);
+		}
+	} else {
+		/* If had no relations before we store pointer to target entity in the chunk. */
+		Entity** t = (Entity**)ptr_target;
+		*t = target;
+
+		marker_set(RELATIONS_MARKER_SIZE, &entity.relations, idx);
+		archetyping(entity);
+	}
+
+	if (!relation_of) relate_relative_of(target, entity, relation_of: true);
+}
+
+<* Set entity's ChildOf relation with any number of targets (parents).
+   @param ...   : "One or more parent entities."
+   @param #init : "Relation initialization block (relationship data)."
+   @return        "Pointer to the entity." *>
+macro Entity* Entity.child_of(&self, ..., #init = {}) @safemacro {
+	$for var $i = 0; $i < $vaarg.len; $i++:
+		self.relate(ChildOf, $vaarg[$i], #init);
+	$endfor
+
+	return self;
+}
+
+<* Set entity's ParentOf relation with any number of targets (children).
+   @param ...   : "One or more child entities."
+   @param #init : "Relation initialization block (relationship data)."
+   @return        "Pointer to the entity." *>
+macro Entity* Entity.parent_of(&self, ..., #init = {}) @safemacro {
+	$for var $i = 0; $i < $vaarg.len; $i++:
+		self.relate(ParentOf, $vaarg[$i], #init);
+	$endfor
+	
+	return self;
+}
+
+<* Checks if the entity has ChildOf relation with (is a child of) all passed parent entities.
+   @param ... : "Pointers to the parent entities."
+   @return      "True if the entity is child of all parents, otherwise - false."*>
+macro bool Entity.is_child_of(&self, ...) @safemacro {
+	$if $vaarg.len == 1:
+		return is_child_of_one(self, $vaarg[0]);
+	$else
+		return is_child_of_many(self, ...$vaarg);
+	$endif
+}
+
+<* Checks if the entity has ChildOf relation with (is a child of) another one.
+   @param entity : "Pointer to the (child) entity."
+   @param parent : "Pointer to the parent entity."
+   @return         "True if the entity is child of parent, otherwise - false."*>
+fn bool is_child_of_one(Entity* entity, Entity* parent) @private {
+	if (entity == parent) return false;
+
+	World* world = entity.block.world;
+	sz idx = world.relations.idx_child_of;
+
+	if (marker_is_set(RELATIONS_MARKER_SIZE, &entity.relations, idx)) {
+		char* ptr_target = entity.block.chunks + world.chunk_size * entity.chunk_idx
+						 + world.relations.types[idx].target_offset;
+
+		if (marker_is_set(RELATIONS_MARKER_SIZE, &entity.many, idx)) {
+			Entities** target = (Entities**)ptr_target;
+			return (*target).contains(parent);
+		} else {
+			Entity** target = (Entity**)ptr_target;
+			return *target == parent;
+		}
+	}
+
+	return false;
+}
+
+<* Checks if the entity has ChildOf relation with (is a child of) all passed parent entities.
+   @param entity  : "Pointer to the (child) entity."
+   @param parents : "Pointers to the parent entities."
+   @return          "True if the entity is child of all parents, otherwise - false."*>
+fn bool is_child_of_many(Entity* entity, Entity*... parents) @private {
+	World* world = entity.block.world;
+	sz idx = world.relations.idx_child_of;
+	bool is_not = true;
+
+	if (marker_is_set(RELATIONS_MARKER_SIZE, &entity.relations, idx)) {
+		char* ptr_target = entity.block.chunks + world.chunk_size * entity.chunk_idx
+						 + world.relations.types[idx].target_offset;
+
+		if (marker_is_set(RELATIONS_MARKER_SIZE, &entity.many, idx)) {
+			Entities** target = (Entities**)ptr_target;
+
+			foreach (parent : parents) {
+				is_not = is_not && !(*target).contains(parent);
+			}
+		} else {
+			Entity** target = (Entity**)ptr_target;
+
+			foreach (parent : parents) {
+				is_not = is_not && *target != parent;
+			}
+		}
+	}
+
+	return !is_not;
+}
+
+<* Checks if the entity has ParentOf relation with (is a parent of) all passed child entities.
+   @param ... : "Pointers to the child entities."
+   @return      "True if the entity is parent of all children, otherwise - false."*>
+macro bool Entity.is_parent_of(&self, ...) @safemacro {
+	$if $vaarg.len == 1:
+		return is_parent_of_one(self, $vaarg[0]);
+	$else
+		return is_parent_of_many(self, ...$vaarg);
+	$endif
+}
+
+<* Checks if the entity has ParentOf relation with (is a parent of) another one.
+   @param entity : "Pointer to the (parent) entity."
+   @param child  : "Pointer to the child entity."
+   @return         "True if the entity is parent of child, otherwise - false."*>
+fn bool is_parent_of_one(Entity* entity, Entity* child) @private {
+	if (entity == child) return false;
+
+	World* world = entity.block.world;
+	sz idx = world.relations.idx_parent_of;
+
+	if (marker_is_set(RELATIONS_MARKER_SIZE, &entity.relations, idx)) {
+		char* ptr_target = entity.block.chunks + world.chunk_size * entity.chunk_idx
+						 + world.relations.types[idx].target_offset;
+
+		if (marker_is_set(RELATIONS_MARKER_SIZE, &entity.many, idx)) {
+			Entities** target = (Entities**)ptr_target;
+			return (*target).contains(child);
+		} else {
+			Entity** target = (Entity**)ptr_target;
+			return *target == child;
+		}
+	}
+
+	return false;
+}
+
+<* Checks if the entity has ParentOf relation with (is a parent of) all passed child entities.
+   @param entity    : "Pointer to the (parent) entity."
+   @param children  : "Pointers to the child entities."
+   @return            "True if the entity is parent of all children, otherwise - false."*>
+fn bool is_parent_of_many(Entity* entity, Entity*... children) @private {
+	World* world = entity.block.world;
+	sz idx = world.relations.idx_parent_of;
+	bool is_not = true;
+
+	if (marker_is_set(RELATIONS_MARKER_SIZE, &entity.relations, idx)) {
+		char* ptr_target = entity.block.chunks + world.chunk_size * entity.chunk_idx
+						 + world.relations.types[idx].target_offset;
+
+		if (marker_is_set(RELATIONS_MARKER_SIZE, &entity.many, idx)) {
+			Entities** target = (Entities**)ptr_target;
+
+			foreach (child : children) {
+				is_not = is_not && !(*target).contains(child);
+			}
+		} else {
+			Entity** target = (Entity**)ptr_target;
+
+			foreach (child : children) {
+				is_not = is_not && *target != child;
+			}
+		}
+	}
+
+	return !is_not;
+}
+
+<* Checks if the entity has ChildOf relation to some other. *>
+fn bool Entity.is_child(&self) {
+	return marker_is_set(RELATIONS_MARKER_SIZE, &self.relations, self.block.world.relations.idx_child_of);
+}
+
+<* Checks if the entity has ParentOf relation to some other. *>
+fn bool Entity.is_parent(&self) {
+	return marker_is_set(RELATIONS_MARKER_SIZE, &self.relations, self.block.world.relations.idx_parent_of);
+}
+
 <* Despawns entity. *>
 fn void Entity.despawn(&self) @inline {
 	despawn_entity(self.block.world, self);

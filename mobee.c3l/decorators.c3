@@ -81,7 +81,7 @@ macro Entity* add_3_components(Entity* entity, $Type1, #init1, $Type2, #init2, $
 
 	World* world = entity.block.world;
 	char[STACK_BUFFER_SIZE] buffer @noinit;
-	char* chunk_ptr = emtity.block.chunks + world.chunk_size * entity.chunk_idx;
+	char* chunk_ptr = entity.block.chunks + world.chunk_size * entity.chunk_idx;
 
 	if (world.components.count != 3) {
 		/* We need to read existing components values first to save values of ones

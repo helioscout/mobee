@@ -1,17 +1,26 @@
 module mobee;
 
+import std::io;
 import std::sort;
 
 <* Relation type that describes child->parent relationship. *>
-struct ChildOf {
+struct ChildOf (Printable) {
 	<* Custom data pointer for the relation. *>
 	void* data;
 }
 
+fn sz? ChildOf.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ data: %p }", self.data);
+}
+
 <* Relation type that describes parent->child relationship. *>
-struct ParentOf {
+struct ParentOf (Printable) {
 	<* Custom data pointer for the relation. *>
 	void* data;
+}
+
+fn sz? ParentOf.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ data: %p }", self.data);
 }
 
 <* Relation type that describes whether an entity has dependencies
