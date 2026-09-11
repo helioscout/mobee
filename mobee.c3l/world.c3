@@ -624,12 +624,17 @@ fn void World.perform(&self) {
 
 	self.deferred.archetyping.clear();
 
-	/* We need to delete empty archetypes. */
-	foreach (archetype : self.archetypes) {
-		if (archetype.entities.len() == 0) free_archetype(archetype);
-	}
-	
-	self.archetypes.remove_if(fn (archetype) => (*archetype).entities.len() == 0);
+	@pool() {
+		Archetypes released;
+		released.init(tmem, 0);
+
+		/* We need to delete empty archetypes. */
+		foreach (archetype : self.archetypes) {
+			if (try_free_archetype(archetype)) released.push(archetype);
+		}
+
+		if (released.size > 0) self.archetypes.remove_all_from(&released);
+	};
 
 	self.performing = false;
 }

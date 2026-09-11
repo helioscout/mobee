@@ -39,3 +39,17 @@ fn void archetype_remove(Entity* entity) @private @inline {
 fn void free_archetype(Archetype* archetype) @private @inline {
 	archetype.entities.free();
 }
+
+<* Checks archetype for empty state and free its memory if needed.
+   @param archetype : "Pointer to the achetype."
+   @return            "True if archetype is empty and its memory has been released, otherwise - false." *>
+fn bool try_free_archetype(Archetype* archetype) @private {
+	bool empty = archetype.entities.len() == 0;
+
+	if (empty) {
+		free_archetype(archetype);
+		free(archetype);
+	}
+
+	return empty;
+}
