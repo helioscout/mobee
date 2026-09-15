@@ -624,17 +624,17 @@ fn void World.perform(&self) {
 
 	self.deferred.archetyping.clear();
 
-	@pool() {
-		Archetypes released;
-		released.init(tmem, 0);
+	// @pool() {
+	// 	Archetypes released;
+	// 	released.init(tmem, 0);
 
-		/* We need to delete empty archetypes. */
-		foreach (archetype : self.archetypes) {
-			if (try_free_archetype(archetype)) released.push(archetype);
-		}
+	// 	/* We need to delete empty archetypes. */
+	// 	foreach (archetype : self.archetypes) {
+	// 		if (try_free_archetype(archetype)) released.push(archetype);
+	// 	}
 
-		if (released.size > 0) self.archetypes.remove_all_from(&released);
-	};
+	// 	if (released.size > 0) self.archetypes.remove_all_from(&released);
+	// };
 
 	self.performing = false;
 }
@@ -718,6 +718,14 @@ fn World* World.disable(&self, String... names) @inline {
 	}
 
 	return self;
+}
+
+<* Frees object memory.
+   @param object : "Object to be freed, for example, entities slice." *>
+fn void World.free(&self, any object) {
+	if (try entities = anycast(object, Entity*[])) {
+		alloc::free(&self.arena, entities.ptr);
+	}
 }
 
 <* Creates new archetype.

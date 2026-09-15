@@ -38,7 +38,7 @@ struct Component2 {
 	float b;
 }
 
-struct Joint {
+struct Joint (Printable) {
 	char type;
 	float[16] data;
 }
@@ -119,6 +119,10 @@ fn sz? Resource4.to_format(&self, Formatter* f) @dynamic {
 
 fn sz? Resource5.to_format(&self, Formatter* f) @dynamic {
 	return f.printf("{ arr: %s }", self.arr);
+}
+
+fn sz? Joint.to_format(&self, Formatter* f) @dynamic {
+	return f.printf("{ data: %s, type: %s }", self.data, self.type);
 }
 
 sz ecount @noinit;
@@ -288,13 +292,20 @@ fn void main() {
 		 .register(COMPONENT, Health)
 		 .register(COMPONENT, Rotation)
 		 .register(COMPONENT, Velocity)
+		 .register(COMPONENT, Component1)
+		 .register(COMPONENT, Component2)
 		 .register(RESOURCE, Resource1)
 		 .register(RESOURCE, Resource2)
 		 .register(RESOURCE, Resource3)
 		 .register(RESOURCE, Resource4)
 		 .register(RESOURCE, Resource5)
+		 .register(RELATION, Relation1)
+		 .register(RELATION, Joint)
+		 .register(RELATION, Relation2)
 		 .register(TAG, Tag1)
 		 .register(TAG, Tag2)
+		 .register(TAG, Tag3)
+		 .register(TAG, Tag4)
 		 .run();
 	io::printn("--- world is running ---");
 
@@ -444,9 +455,18 @@ fn void main() {
 	// e1.relate(ParentOf, e3);
 	// e1.relate(ParentOf, e2);
 	// e1.relate(ParentOf, e4);
+	io::printfn("e1: %s", e1);
+	io::printfn("e2: %s", e2);
+	io::printfn("e3: %s", e3);
+	io::printfn("e4: %s", e4);
+	io::printfn("e5: %s", e5);
 	e1.parent_of(e2, e4);
 	e3.child_of(e1, e4);
+	e3.relate(Joint, e1, { .type = 33 });
+	e3.relate(Joint, e5);
+	e1.relate(Joint, e5);
 	
+	// e3.unrelate(ChildOf, e4);
 	io::printfn("e1 is parent of e3: %s", e1.is_parent_of(e3));
 	io::printfn("e1 is parent of e2, e3, e4: %s", e1.is_parent_of(e2, e3, e4));
 	io::printfn("e3 is parent of e4: %s", e3.is_parent_of(e4));
@@ -455,7 +475,73 @@ fn void main() {
 	io::printfn("e1 is child: %s", e1.is_child());
 	io::printfn("e3 is child: %s", e3.is_child());
 	io::printfn("e4 is parent: %s", e4.is_parent());
+	io::printfn("e1 related by ParentOf: %s", e1.related(ParentOf));
+	io::printfn("e1 related by ChildOf: %s", e1.related(ChildOf));
+	io::printfn("e3 related with e1 by ChildOf: %s", e3.related(ChildOf, e1, e1));
+	io::printfn("e1 related with e2, e3, e4 by ParentOf: %s", e1.related(ParentOf, e2, e3, e4));
+	io::printfn("e4 related with e2 by ChildOf: %s", e4.related(ChildOf, e2));
+	io::printfn("e5 is relation: %s", e5.is_relation());
+	io::printfn("e4 is relation: %s", e4.is_relation());
+	io::printfn("e1 is relation of e2, e3, e4: %s", e1.is_relation_of(e2, e3, e4));
+	io::printfn("e1 is relation of e5: %s", e1.is_relation_of(e5));
+	io::printfn("e5 is relation of e1: %s", e5.is_relation_of(e1, e1));
+	io::printfn("count of e1 -> e3 relations: %s", e1.relation_of_count(e3));
+	io::printfn("count of e3 -> e1 relations: %s", e3.relation_of_count(e1));
+	// e1.unrelate(Joint, e5);
+	io::printfn("e1 related with e5 by Joint: %s", e1.related(Joint, e5));
+	// e3.unrelate(ChildOf, e1, e4);
+	// e3.unrelate(ChildOf);
+	// e1.unrelate(ParentOf, e2, e4);
+	io::printfn("e3 related with e1, e4 by ChildOf: %s", e3.related(ChildOf, e1, e4));
+
+	if (try Entity* e = e3.parent()) io::printfn("e3 parent: %s", e);
+	if (try Entity*[] e = e3.parents()) io::printfn("e3 parents: %s", e);
+	if (try Entity* e = e1.child()) io::printfn("e1 child: %s", e);
+	if (try Entity*[] e = e1.children()) io::printfn("e1 children: %s", e);
+
+	if (try Joint* j    = e3.relation(Joint) &&
+		try Entity*[] e = e3.targets(Joint)) {
+		io::printfn("e3 Joint relation (%s) data: %s", e, *j);
+
+		world.free(&e);
+	}
+
+	e1.relationship(ParentOf; relation, entities) {
+		io::printfn("e1 ParentOf %s: %s", entities, relation);
+	};
 	
+	e1.relationship(int; relation, entities) {
+		io::printfn("e1 ParentOf %s: %s", entities, relation);
+	};
+	
+	e3.relationship(Joint; relation, entities) {
+		io::printfn("e3 Joint %s: %s", entities, relation);
+	};
+
+	e3.relationship(ChildOf; relation, entities) {
+		if (relation) {
+			io::printfn("e3 ChildOf (%s) relations:", relation);
+			
+			foreach (entity: entities) {
+				io::printf(" %s", entity);
+			}
+
+			io::printn();
+		}
+	};
+	
+	e3.relationship(Joint; relation, entities) {
+		if (relation) {
+			io::printfn("e3 Joint (%s) relations:", relation);
+			
+			foreach (entity: entities) {
+				io::printf(" %s", entity);
+			}
+
+			io::printn();
+		}
+	};
+
 	io::printn("--- setting resources ---");
 
 	world.set(Resource1, { .enabled = true },
