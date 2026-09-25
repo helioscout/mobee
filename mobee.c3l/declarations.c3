@@ -59,7 +59,7 @@ alias Archetypes = List { Archetype* };
 alias Types = List { typeid };
 
 <* Entities/blocks lifetime. *>
-constdef Lifetime : inline char {
+constset Lifetime : inline char {
    <* Entities whose lifespan is not defined or determined in advance (from one frame to app exit).
       Such blocks will reuse freed after deletion rows to insert new entities. *>
    DYNAMIC = 0b00000001,
@@ -89,7 +89,7 @@ enum Element {
 }
 
 <* The state flags for an element (entity or system). *>
-constdef ElementState : inline ushort {
+constset ElementState : inline ushort {
 	<* Entity has been deleted. *>
 	DELETED				   = 0b0000000000000001,
 	<* System is enabled. *>
@@ -134,7 +134,7 @@ enum Approach : char {
 }
 
 <* System running phase, determine when system should run during pipeline. *>
-constdef Phase : inline char {
+constset Phase : inline char {
 	<* System will run once at the beginning of the first progress step. *>
 	START       = 1,
 	<* System will run before update phase. *>
@@ -218,10 +218,12 @@ alias SystemCallback = fn void(Entities* entities, World* world);
    @param relation : "Pointer to the relation instance (relationship data) for relation events." *>
 alias ObserverCallback = fn void(World *world, Entity* entity, Event event, typeid type, void* element, void* relation);
 
-<* Accessing element is out of bounds of the collection. *>
-faultdef OUT_OF_BOUNDS;
-<* There is no element to swap with removed one in the collection. *>
-faultdef NO_SWAPPED_ELEMENT;
+excuse {
+	<* Accessing element is out of bounds of the collection. *>
+	OUT_OF_BOUNDS,
+	<* There is no element to swap with removed one in the collection. *>
+	NO_SWAPPED_ELEMENT
+}
 
 const String ERR_TYPE_ALREADY_REGISTERED @private = "Type is already registered for another element kind.";
 const String ERR_SYSTEM_ALREADY_MOUNTED @private = "System with such name has already been mounted.";
